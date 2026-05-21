@@ -55,7 +55,7 @@ const ImportExport: React.FC = () => {
       textForm.resetFields();
       textForm.setFieldsValue({ format: 'toml' });
     } catch (err: any) {
-      message.error('导入失败: ' + (err.response?.data?.message || err.message));
+      message.error('导入失败: ' + (err.response?.data?.error?.message || err.message));
     } finally {
       setTextLoading(false);
     }
@@ -68,7 +68,7 @@ const ImportExport: React.FC = () => {
       message.success(`URL 远程拉取配置 [${values.id}] 成功`);
       urlForm.resetFields();
     } catch (err: any) {
-      message.error('导入失败: ' + (err.response?.data?.message || err.message));
+      message.error('导入失败: ' + (err.response?.data?.error?.message || err.message));
     } finally {
       setUrlLoading(false);
     }

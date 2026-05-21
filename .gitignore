@@ -3,6 +3,7 @@ dist/
 tmp/
 data/
 *.syso
+*.exe
 .env
 .idea/
 .vscode/

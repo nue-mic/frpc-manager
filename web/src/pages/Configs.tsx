@@ -2,9 +2,10 @@ import { useEffect, useState, useRef } from 'react';
 import {
   Card, Row, Col, Button, Badge, Space, Typography, Popconfirm,
   Tabs, Form, Input, InputNumber, Switch, Table, Drawer, Modal,
-  message, Tag, Tooltip, Empty, List, Skeleton, Radio, Select,
+  message, Tag, Tooltip, Empty, List, Skeleton, Radio, Select, Dropdown,
   theme as antdTheme,
 } from 'antd';
+import type { MenuProps } from 'antd';
 import {
   PlayCircleOutlined,
   StopOutlined,
@@ -17,8 +18,31 @@ import {
   CheckCircleOutlined,
   ThunderboltOutlined,
   FileTextOutlined,
+  MenuFoldOutlined,
+  MenuUnfoldOutlined,
+  DownloadOutlined,
+  ExclamationCircleOutlined,
 } from '@ant-design/icons';
-import client from '../api/client';
+
+const LIST_COMPACT_KEY = 'frpmgr_configs_compact';
+import CodeMirror from '@uiw/react-codemirror';
+import { StreamLanguage } from '@codemirror/language';
+import { toml } from '@codemirror/legacy-modes/mode/toml';
+import { oneDark } from '@codemirror/theme-one-dark';
+import { EditorView } from '@codemirror/view';
+
+// 与 VS Code 默认 monospace 字体栈对齐：Windows 优先 Cascadia, macOS 退回 SF Mono / Menlo,
+// Linux 退回 Ubuntu / DejaVu。任何系统都不会再触发浏览器丑陋的 fallback。
+const VSCODE_MONO = `'Cascadia Code', 'Cascadia Mono', Consolas, 'SF Mono', Menlo, Monaco, 'Roboto Mono', 'Fira Code', 'JetBrains Mono', 'Source Code Pro', 'Liberation Mono', 'Courier New', monospace`;
+
+const tomlEditorFontTheme = EditorView.theme({
+  '&': { fontFamily: VSCODE_MONO, fontSize: '13.5px' },
+  '.cm-content': { fontFamily: VSCODE_MONO, fontVariantLigatures: 'contextual', caretColor: '#fff' },
+  '.cm-gutters': { fontFamily: VSCODE_MONO, fontSize: '12.5px' },
+  '.cm-scroller': { lineHeight: '1.55' },
+});
+import client, { getAPIToken } from '../api/client';
+import { useTheme } from '../theme/ThemeContext';
 
 const { Title, Text } = Typography;
 
@@ -33,6 +57,8 @@ interface ConfigItem {
 
 const Configs: React.FC = () => {
   const { token } = antdTheme.useToken();
+  const { resolved: themeMode } = useTheme();
+  const tomlExtensions = [StreamLanguage.define(toml), tomlEditorFontTheme];
   const [configs, setConfigs] = useState<ConfigItem[]>([]);
   const [activeConfigId, setActiveConfigId] = useState<string>('');
   const [statusLoading, setStatusLoading] = useState<Record<string, boolean>>({});
@@ -51,12 +77,31 @@ const Configs: React.FC = () => {
   const [proxyDrawerOpen, setProxyDrawerOpen] = useState<boolean>(false);
   const [editingProxy, setEditingProxy] = useState<any>(null);
 
-  // 迷你日志状态
-  const [miniLogs, setMiniLogs] = useState<string>('');
-  const [logsLoading, setLogsLoading] = useState<boolean>(false);
+  // 迷你日志状态（最近 1000 行 + 实时 WebSocket 推送 + 自动滚底）
+  const MINI_LOGS_MAX = 1000;
+  const [miniLogLines, setMiniLogLines] = useState<string[]>([]);
+  const [miniLogsLoading, setMiniLogsLoading] = useState<boolean>(false);
+  const [miniLogsPaused, setMiniLogsPaused] = useState<boolean>(false);
+  const [miniLogsWsState, setMiniLogsWsState] = useState<'idle' | 'connecting' | 'connected' | 'closed'>('idle');
+  const miniLogsPausedRef = useRef(miniLogsPaused);
+  miniLogsPausedRef.current = miniLogsPaused;
+  const miniLogsWsRef = useRef<WebSocket | null>(null);
+  const miniLogsBottomRef = useRef<HTMLDivElement | null>(null);
 
   // 新建配置 Modal
   const [newConfigModalOpen, setNewConfigModalOpen] = useState<boolean>(false);
+
+  // 左栏紧凑模式（保存到 localStorage）— 常用右栏时把列表折成窄条
+  const [compactList, setCompactList] = useState<boolean>(
+    () => localStorage.getItem(LIST_COMPACT_KEY) === '1'
+  );
+  const toggleCompactList = () => {
+    setCompactList((prev) => {
+      const next = !prev;
+      localStorage.setItem(LIST_COMPACT_KEY, next ? '1' : '0');
+      return next;
+    });
+  };
 
   const [form] = Form.useForm();
   const [proxyForm] = Form.useForm();
@@ -132,7 +177,7 @@ const Configs: React.FC = () => {
       message.success('启动指令已发送');
       fetchStatus(id);
     } catch (err: any) {
-      message.error('启动失败: ' + (err.response?.data?.message || err.message));
+      message.error('启动失败: ' + (err.response?.data?.error?.message || err.message));
     } finally {
       setStatusLoading(prev => ({ ...prev, [id]: false }));
     }
@@ -145,7 +190,7 @@ const Configs: React.FC = () => {
       message.success('停止指令已发送');
       fetchStatus(id);
     } catch (err: any) {
-      message.error('停止失败: ' + (err.response?.data?.message || err.message));
+      message.error('停止失败: ' + (err.response?.data?.error?.message || err.message));
     } finally {
       setStatusLoading(prev => ({ ...prev, [id]: false }));
     }
@@ -157,7 +202,7 @@ const Configs: React.FC = () => {
       await client.post(`/api/v1/configs/${id}/reload`);
       message.success('配置已重载');
     } catch (err: any) {
-      message.error('重载失败: ' + (err.response?.data?.message || err.message));
+      message.error('重载失败: ' + (err.response?.data?.error?.message || err.message));
     } finally {
       setStatusLoading(prev => ({ ...prev, [id]: false }));
     }
@@ -183,8 +228,81 @@ const Configs: React.FC = () => {
       message.success(`已复制为新配置: ${newId}`);
       fetchConfigs();
     } catch (err: any) {
-      message.error('复制失败: ' + (err.response?.data?.message || err.message));
+      message.error('复制失败: ' + (err.response?.data?.error?.message || err.message));
     }
+  };
+
+  // 导出单个配置为 TOML 文件并触发浏览器下载
+  const handleExportConfig = async (id: string) => {
+    try {
+      const resp = await client.get(`/api/v1/configs/${id}/export`, { responseType: 'blob' });
+      const blob = new Blob([resp.data], { type: 'application/toml' });
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${id}.toml`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(url);
+      message.success(`已导出 ${id}.toml`);
+    } catch (err: any) {
+      message.error('导出失败: ' + (err.response?.data?.error?.message || err.message));
+    }
+  };
+
+  // 构造右键菜单（在两种 Card 渲染分支之间共用）
+  const buildContextMenu = (item: ConfigItem): MenuProps => {
+    const isRunning = item.state === 'started';
+    return {
+      items: [
+        isRunning
+          ? { key: 'stop', label: '停止', icon: <StopOutlined /> }
+          : { key: 'start', label: '启动', icon: <PlayCircleOutlined /> },
+        { key: 'reload', label: '重载配置', icon: <ReloadOutlined />, disabled: !isRunning },
+        { type: 'divider' },
+        { key: 'duplicate', label: '克隆配置', icon: <CopyOutlined /> },
+        { key: 'export', label: '导出 TOML', icon: <DownloadOutlined /> },
+        { type: 'divider' },
+        {
+          key: 'delete',
+          label: '删除配置',
+          icon: <DeleteOutlined />,
+          danger: true,
+        },
+      ],
+      onClick: ({ key, domEvent }) => {
+        domEvent.stopPropagation();
+        switch (key) {
+          case 'start':
+            handleStartInstance(item.id);
+            break;
+          case 'stop':
+            handleStopInstance(item.id);
+            break;
+          case 'reload':
+            handleReloadInstance(item.id);
+            break;
+          case 'duplicate':
+            handleDuplicateConfig(item.id);
+            break;
+          case 'export':
+            handleExportConfig(item.id);
+            break;
+          case 'delete':
+            Modal.confirm({
+              title: `确定删除「${item.name || item.id}」？`,
+              icon: <ExclamationCircleOutlined />,
+              content: '删除后相关代理 / 访客规则一并抹去且无法恢复。',
+              okText: '删除',
+              okType: 'danger',
+              cancelText: '取消',
+              onOk: () => handleDeleteConfig(item.id),
+            });
+            break;
+        }
+      },
+    };
   };
 
   // 根据当前 Tab 加载对应数据
@@ -200,14 +318,34 @@ const Configs: React.FC = () => {
     }
   };
 
-  // 加载代理列表
+  // 加载代理 + 访客列表
+  //
+  // 后端 /proxies 返回的是「运行时快照」（ProxySnapshot, snake_case），只含
+  //   name / type / status / local_ip / local_port / cur_conns / disabled
+  // 不含 remotePort / customDomains / secretKey / multiplexer 等业务字段。
+  // 业务字段需从 GET /configs/{id} 的 config.proxies[] / config.visitors[] (camelCase) 取，按 name 合并。
+  //
+  // 每条记录加 `_kind: 'proxy' | 'visitor'` 标记 — 后续编辑 / 保存依据它决定走哪条 API 通道
+  // （/proxies POST 接受 `{proxy:...}` 或 `{visitor:...}` 两种 envelope）。
   const loadProxies = async (id: string) => {
     setProxiesLoading(true);
     try {
-      const resp = await client.get(`/api/v1/configs/${id}/proxies`);
-      if (resp.status === 200) {
-        setProxies(resp.data?.items || resp.data || []);
-      }
+      const [snapResp, envResp] = await Promise.all([
+        client.get(`/api/v1/configs/${id}/proxies`),
+        client.get(`/api/v1/configs/${id}`),
+      ]);
+      const snapItems: any[] = snapResp.data?.items || [];
+      const fullProxies: any[] = envResp.data?.config?.proxies || [];
+      const fullVisitors: any[] = envResp.data?.config?.visitors || [];
+      const proxyByName = new Map(fullProxies.map((p: any) => [p.name, p]));
+      const visitorByName = new Map(fullVisitors.map((v: any) => [v.name, v]));
+      const merged = snapItems.map((snap) => {
+        if (visitorByName.has(snap.name)) {
+          return { _kind: 'visitor', ...(visitorByName.get(snap.name) || {}), ...snap };
+        }
+        return { _kind: 'proxy', ...(proxyByName.get(snap.name) || {}), ...snap };
+      });
+      setProxies(merged);
     } catch (err) {
       setProxies([]);
     } finally {
@@ -252,6 +390,9 @@ const Configs: React.FC = () => {
           serverAddr: configData.serverAddr || '',
           serverPort: configData.serverPort || 7000,
           natHoleSTUNServer: configData.natHoleSTUNServer || '',
+          // 注意：后端 loginFailExit 是 *bool（nil/true=登录失败立即退出，false=无限重试）
+          // 本项目 NewDefaultClientConfigV1 默认为 false，与上游 frp 不同。
+          loginFailExit: configData.loginFailExit ?? false,
           manualStart: configData.frpmgr?.manualStart ?? false,
           autoDelete: configData.frpmgr?.autoDelete ?? false,
           // 认证
@@ -308,27 +449,89 @@ const Configs: React.FC = () => {
     }
   };
 
-  // 加载近 200 行日志
-  const loadMiniLogs = async (id: string) => {
-    setLogsLoading(true);
-    try {
-      const resp = await client.get(`/api/v1/configs/${id}/logs?lines=200`);
-      if (resp.status === 200) {
-        // 部分接口返回对象，部分直接返回 text 数组。后端 /logs 返回 JSON
-        const logsData = resp.data;
-        if (logsData && Array.isArray(logsData.lines)) {
-          setMiniLogs(logsData.lines.join('\n'));
-        } else if (Array.isArray(logsData)) {
-          setMiniLogs(logsData.join('\n'));
-        } else {
-          setMiniLogs(JSON.stringify(logsData));
-        }
-      }
-    } catch (err) {
-      setMiniLogs('无法加载日志，可能实例尚未启动过。');
-    } finally {
-      setLogsLoading(false);
+  // 关闭实时日志 WebSocket
+  const disconnectMiniLogsWS = () => {
+    if (miniLogsWsRef.current) {
+      try { miniLogsWsRef.current.close(); } catch {/* ignore */}
+      miniLogsWsRef.current = null;
     }
+    setMiniLogsWsState('closed');
+  };
+
+  // 拉取最近 1000 行历史日志，并起 WebSocket 实时尾追
+  // 后端 HTTP `/logs?lines=N`（util.ReadFileLines）返回最后 N 行历史；
+  // WS `/logs/tail` 每帧 `{line: "..."}` 推送新增行（带 30s ping 保活）。
+  const loadMiniLogs = async (id: string) => {
+    disconnectMiniLogsWS();
+    setMiniLogsLoading(true);
+    setMiniLogLines([]);
+    try {
+      const resp = await client.get(`/api/v1/configs/${id}/logs?lines=${MINI_LOGS_MAX}`);
+      if (resp.status === 200) {
+        const data = resp.data;
+        const lines: string[] = Array.isArray(data?.lines) ? data.lines : (Array.isArray(data) ? data : []);
+        setMiniLogLines(lines.slice(-MINI_LOGS_MAX));
+      }
+    } catch {
+      // 日志文件不存在很正常（实例从未启动过）— 静默
+    } finally {
+      setMiniLogsLoading(false);
+    }
+
+    // 起 WebSocket 实时尾追
+    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const apiToken = getAPIToken();
+    const wsUrl = `${protocol}//${window.location.host}/api/v1/configs/${id}/logs/tail?token=${encodeURIComponent(apiToken || '')}`;
+    setMiniLogsWsState('connecting');
+    try {
+      const ws = new WebSocket(wsUrl);
+      miniLogsWsRef.current = ws;
+      ws.onopen = () => setMiniLogsWsState('connected');
+      ws.onmessage = (evt) => {
+        if (miniLogsPausedRef.current) return;
+        let line: string | null = null;
+        try {
+          const obj = JSON.parse(evt.data);
+          if (obj && typeof obj.line === 'string') line = obj.line;
+        } catch {
+          if (typeof evt.data === 'string') line = evt.data;
+        }
+        if (line === null) return;
+        setMiniLogLines((prev) => {
+          const next = prev.length >= MINI_LOGS_MAX ? prev.slice(prev.length - MINI_LOGS_MAX + 1) : prev.slice();
+          next.push(line!);
+          return next;
+        });
+      };
+      ws.onerror = () => setMiniLogsWsState('closed');
+      ws.onclose = () => setMiniLogsWsState('closed');
+    } catch {
+      setMiniLogsWsState('closed');
+    }
+  };
+
+  // tab 离开 logs / 切换实例 / 组件卸载 时断开 WS，避免泄露与无谓流量
+  useEffect(() => {
+    if (activeTab !== 'logs') {
+      disconnectMiniLogsWS();
+    }
+    return () => disconnectMiniLogsWS();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab, activeConfigId]);
+
+  // 新行进来时自动滚到底（暂停时不滚）
+  useEffect(() => {
+    if (miniLogsPaused) return;
+    miniLogsBottomRef.current?.scrollIntoView({ behavior: 'auto', block: 'end' });
+  }, [miniLogLines, miniLogsPaused]);
+
+  // 行级颜色 class — 与 Logs.tsx 保持一致，靠 index.css 的 .log-info/.log-warn/.log-error/.log-debug
+  const miniLogClass = (line: string): string => {
+    if (line.includes('[W]') || /\bwarn(ing)?\b/i.test(line)) return 'log-line log-warn';
+    if (line.includes('[E]') || /\berror\b|\bfailed\b/i.test(line)) return 'log-line log-error';
+    if (line.includes('[D]') || /\bdebug\b/i.test(line)) return 'log-line log-debug';
+    if (line.includes('[I]') || /\binfo\b/i.test(line)) return 'log-line log-info';
+    return 'log-line';
   };
 
   // 保存可视化配置
@@ -341,6 +544,8 @@ const Configs: React.FC = () => {
           serverAddr: values.serverAddr,
           serverPort: values.serverPort,
           natHoleSTUNServer: values.natHoleSTUNServer || undefined,
+          // *bool — 必须显式写入（含 false），否则 spread 里旧值会保留
+          loginFailExit: values.loginFailExit,
           auth: {
             method: values.authMethod,
             token: values.authMethod === 'token' ? values.authToken : undefined,
@@ -413,7 +618,7 @@ const Configs: React.FC = () => {
         fetchConfigs();
       }
     } catch (err: any) {
-      message.error('保存失败: ' + (err.response?.data?.message || 'TOML 语法校验未通过'));
+      message.error('保存失败: ' + (err.response?.data?.error?.message || 'TOML 语法校验未通过'));
     } finally {
       setTomlLoading(false);
     }
@@ -444,79 +649,118 @@ const Configs: React.FC = () => {
       setActiveConfigId(values.id);
       fetchConfigs();
     } catch (err: any) {
-      message.error('创建失败: ' + (err.response?.data?.message || err.message));
+      message.error('创建失败: ' + (err.response?.data?.error?.message || err.message));
     }
   };
 
-  // 提交代理配置 Drawer 表单
+  // 提交「代理 / 访客」Drawer 表单
+  //
+  // 根据 values.kind 决定走 envelope 的 `proxy` 还是 `visitor` 通道：
+  //   - 'proxy'   → {proxy:   v1.TypedProxyConfig}   全部 8 种协议
+  //   - 'visitor' → {visitor: v1.TypedVisitorConfig} 仅 stcp/sudp/xtcp
   const handleSaveProxy = async (values: any) => {
     try {
       const splitCSV = (v?: string): string[] | undefined =>
         v ? v.split(',').map((s: string) => s.trim()).filter(Boolean) : undefined;
-      const payload: Record<string, unknown> = {
-        name: values.name,
-        type: values.type,
-        localIP: values.localIP || '127.0.0.1',
-        localPort: values.localPort,
-      };
+      const kind = (values.kind as 'proxy' | 'visitor') || 'proxy';
       const t = values.type as string;
-      // 通用 / TCP / UDP
-      if (t === 'tcp' || t === 'udp') {
-        payload.remotePort = values.remotePort;
-      }
-      // tcpmux：基于域名复用
-      if (t === 'tcpmux') {
-        payload.multiplexer = values.multiplexer || 'httpconnect';
-        payload.customDomains = splitCSV(values.customDomains);
-        if (values.routeByHTTPUser) payload.routeByHTTPUser = values.routeByHTTPUser;
-      }
-      // HTTP / HTTPS
-      if (t === 'http' || t === 'https') {
-        payload.customDomains = splitCSV(values.customDomains);
-        if (values.subdomain) payload.subdomain = values.subdomain;
-        if (values.locations) payload.locations = splitCSV(values.locations);
-        if (values.hostHeaderRewrite) payload.hostHeaderRewrite = values.hostHeaderRewrite;
-        if (values.httpUser) payload.httpUser = values.httpUser;
-        if (values.httpPassword) payload.httpPassword = values.httpPassword;
-      }
-      // STCP / SUDP / XTCP：安全/直连模式
-      if (t === 'stcp' || t === 'sudp' || t === 'xtcp') {
-        payload.secretKey = values.secretKey;
-        if (values.allowUsers) payload.allowUsers = splitCSV(values.allowUsers);
-      }
-      // 插件透传
-      if (values.pluginName) {
-        const plugin: Record<string, unknown> = { type: values.pluginName };
-        if (values.pluginLocalAddr) plugin.localAddr = values.pluginLocalAddr;
-        if (values.pluginLocalPath) plugin.localPath = values.pluginLocalPath;
-        if (values.pluginHTTPUser) plugin.httpUser = values.pluginHTTPUser;
-        if (values.pluginHTTPPassword) plugin.httpPassword = values.pluginHTTPPassword;
-        payload.plugin = plugin;
-      }
-      if (editingProxy) {
-        // 修改代理
-        await client.put(`/api/v1/configs/${activeConfigId}/proxies/${editingProxy.name}`, { proxy: payload });
-        message.success('代理规则修改成功');
+
+      let body: Record<string, unknown>;
+
+      if (kind === 'visitor') {
+        // visitor 仅适用于 stcp / sudp / xtcp
+        const v: Record<string, unknown> = {
+          name: values.name,
+          type: t,
+          secretKey: values.secretKey,
+          serverName: values.serverName,
+          bindAddr: values.bindAddr || '127.0.0.1',
+          bindPort: values.bindPort,
+        };
+        if (values.serverUser) v.serverUser = values.serverUser;
+        if (values.useEncryption !== undefined || values.useCompression !== undefined) {
+          v.transport = {
+            useEncryption: !!values.useEncryption,
+            useCompression: !!values.useCompression,
+          };
+        }
+        if (t === 'xtcp') {
+          if (values.xtcpProtocol) v.protocol = values.xtcpProtocol;
+          if (values.keepTunnelOpen) v.keepTunnelOpen = true;
+          if (values.maxRetriesAnHour) v.maxRetriesAnHour = values.maxRetriesAnHour;
+          if (values.minRetryInterval) v.minRetryInterval = values.minRetryInterval;
+          if (values.fallbackTo) v.fallbackTo = values.fallbackTo;
+          if (values.fallbackTimeoutMs) v.fallbackTimeoutMs = values.fallbackTimeoutMs;
+        }
+        body = { visitor: v };
       } else {
-        // 新建代理
-        await client.post(`/api/v1/configs/${activeConfigId}/proxies`, { proxy: payload });
-        message.success('代理规则创建成功');
+        const payload: Record<string, unknown> = {
+          name: values.name,
+          type: t,
+          localIP: values.localIP || '127.0.0.1',
+          localPort: values.localPort,
+        };
+        // 通用 / TCP / UDP
+        if (t === 'tcp' || t === 'udp') {
+          payload.remotePort = values.remotePort;
+        }
+        // tcpmux：基于域名复用
+        if (t === 'tcpmux') {
+          payload.multiplexer = values.multiplexer || 'httpconnect';
+          payload.customDomains = splitCSV(values.customDomains);
+          if (values.routeByHTTPUser) payload.routeByHTTPUser = values.routeByHTTPUser;
+        }
+        // HTTP / HTTPS
+        if (t === 'http' || t === 'https') {
+          payload.customDomains = splitCSV(values.customDomains);
+          if (values.subdomain) payload.subdomain = values.subdomain;
+          if (values.locations) payload.locations = splitCSV(values.locations);
+          if (values.hostHeaderRewrite) payload.hostHeaderRewrite = values.hostHeaderRewrite;
+          if (values.httpUser) payload.httpUser = values.httpUser;
+          if (values.httpPassword) payload.httpPassword = values.httpPassword;
+        }
+        // STCP / SUDP / XTCP（服务端角色）
+        if (t === 'stcp' || t === 'sudp' || t === 'xtcp') {
+          payload.secretKey = values.secretKey;
+          if (values.allowUsers) payload.allowUsers = splitCSV(values.allowUsers);
+        }
+        // 插件透传
+        if (values.pluginName) {
+          const plugin: Record<string, unknown> = { type: values.pluginName };
+          if (values.pluginLocalAddr) plugin.localAddr = values.pluginLocalAddr;
+          if (values.pluginLocalPath) plugin.localPath = values.pluginLocalPath;
+          if (values.pluginHTTPUser) plugin.httpUser = values.pluginHTTPUser;
+          if (values.pluginHTTPPassword) plugin.httpPassword = values.pluginHTTPPassword;
+          payload.plugin = plugin;
+        }
+        body = { proxy: payload };
+      }
+
+      if (editingProxy) {
+        await client.put(`/api/v1/configs/${activeConfigId}/proxies/${editingProxy.name}`, body);
+        message.success(`${kind === 'visitor' ? '访客' : '代理'}规则修改成功`);
+      } else {
+        await client.post(`/api/v1/configs/${activeConfigId}/proxies`, body);
+        message.success(`${kind === 'visitor' ? '访客' : '代理'}规则创建成功`);
       }
       setProxyDrawerOpen(false);
       loadProxies(activeConfigId);
     } catch (err: any) {
-      message.error('操作失败: ' + (err.response?.data?.message || err.message));
+      message.error('操作失败: ' + (err.response?.data?.error?.message || err.message));
     }
   };
 
-  // 开启代理 Drawer
-  const openProxyDrawer = (proxyItem?: any) => {
+  // 开启 Drawer（新建 / 编辑）
+  const openProxyDrawer = (proxyItem?: any, initialKind: 'proxy' | 'visitor' = 'proxy') => {
     setEditingProxy(proxyItem);
     if (proxyItem) {
+      const kind: 'proxy' | 'visitor' = proxyItem._kind || 'proxy';
       const pl = proxyItem.plugin || {};
       proxyForm.setFieldsValue({
+        kind,
         name: proxyItem.name,
         type: proxyItem.type || 'tcp',
+        // proxy / server-side 字段
         localIP: proxyItem.localIP || '127.0.0.1',
         localPort: proxyItem.localPort,
         remotePort: proxyItem.remotePort,
@@ -535,10 +779,30 @@ const Configs: React.FC = () => {
         pluginLocalPath: pl.localPath,
         pluginHTTPUser: pl.httpUser,
         pluginHTTPPassword: pl.httpPassword,
+        // visitor 字段
+        serverName: proxyItem.serverName,
+        serverUser: proxyItem.serverUser,
+        bindAddr: proxyItem.bindAddr || '127.0.0.1',
+        bindPort: proxyItem.bindPort,
+        useEncryption: proxyItem.transport?.useEncryption ?? false,
+        useCompression: proxyItem.transport?.useCompression ?? false,
+        // xtcp visitor 额外
+        xtcpProtocol: proxyItem.protocol || 'quic',
+        keepTunnelOpen: proxyItem.keepTunnelOpen ?? false,
+        maxRetriesAnHour: proxyItem.maxRetriesAnHour,
+        minRetryInterval: proxyItem.minRetryInterval,
+        fallbackTo: proxyItem.fallbackTo,
+        fallbackTimeoutMs: proxyItem.fallbackTimeoutMs,
       });
     } else {
       proxyForm.resetFields();
-      proxyForm.setFieldsValue({ type: 'tcp', localIP: '127.0.0.1' });
+      proxyForm.setFieldsValue({
+        kind: initialKind,
+        type: initialKind === 'visitor' ? 'stcp' : 'tcp',
+        localIP: '127.0.0.1',
+        bindAddr: '127.0.0.1',
+        xtcpProtocol: 'quic',
+      });
     }
     setProxyDrawerOpen(true);
   };
@@ -561,23 +825,43 @@ const Configs: React.FC = () => {
   return (
     <div style={{ height: '100%' }}>
       <Row gutter={16} style={{ height: '100%', minHeight: '580px' }}>
-        {/* 左栏：实例卡片列表 */}
-        <Col xs={24} md={8} style={{ display: 'flex', flexDirection: 'column' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-            <Title level={4} style={{ margin: 0 }}>配置列表</Title>
-            <Button
-              type="primary"
-              icon={<PlusOutlined />}
-              onClick={() => setNewConfigModalOpen(true)}
-            >
-              新建配置
-            </Button>
+        {/* 左栏：实例卡片列表（支持紧凑/完整两档宽度，状态持久化在 localStorage） */}
+        <Col xs={24} md={compactList ? 5 : 8} style={{ display: 'flex', flexDirection: 'column' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, gap: 8 }}>
+            <Space size={6} style={{ minWidth: 0, flex: 1 }}>
+              <Tooltip title={compactList ? '展开列表' : '收起为紧凑列表'}>
+                <Button
+                  size="small"
+                  type="text"
+                  icon={compactList ? <MenuUnfoldOutlined /> : <MenuFoldOutlined />}
+                  onClick={toggleCompactList}
+                />
+              </Tooltip>
+              {!compactList && <Title level={4} style={{ margin: 0 }}>配置列表</Title>}
+            </Space>
+            {compactList ? (
+              <Tooltip title="新建配置">
+                <Button
+                  type="primary"
+                  icon={<PlusOutlined />}
+                  onClick={() => setNewConfigModalOpen(true)}
+                />
+              </Tooltip>
+            ) : (
+              <Button
+                type="primary"
+                icon={<PlusOutlined />}
+                onClick={() => setNewConfigModalOpen(true)}
+              >
+                新建配置
+              </Button>
+            )}
           </div>
 
           <div style={{ flex: 1, overflowY: 'auto', paddingRight: '4px' }}>
             {configs.length === 0 ? (
-              <Card style={{ textAlign: 'center', padding: '40px 0', borderRadius: 10 }}>
-                <Empty description="暂无配置文件，点击右上角创建。" />
+              <Card style={{ textAlign: 'center', padding: compactList ? '20px 0' : '40px 0', borderRadius: 10 }}>
+                <Empty description={compactList ? '暂无配置' : '暂无配置文件，点击右上角创建。'} />
               </Card>
             ) : (
               <List
@@ -585,7 +869,60 @@ const Configs: React.FC = () => {
                 renderItem={(item) => {
                   const isActive = item.id === activeConfigId;
                   const isRunning = item.state === 'started';
+
+                  // 紧凑模式：只显示名字 + 状态圆点 + 启停按钮，省去 ID 与克隆/删除按钮
+                  // 完整功能（重载/克隆/导出/删除）通过右键菜单暴露
+                  if (compactList) {
+                    return (
+                      <Dropdown menu={buildContextMenu(item)} trigger={['contextMenu']}>
+                        <Tooltip title={`${item.name || item.id} (ID: ${item.id}) · 右键可重载 / 克隆 / 导出 / 删除`} placement="right">
+                          <Card
+                            hoverable
+                            size="small"
+                            style={{
+                              marginBottom: 8,
+                              cursor: 'pointer',
+                              border: `1px solid ${isActive ? token.colorPrimary : token.colorBorderSecondary}`,
+                              background: isActive ? token.colorPrimaryBg : token.colorBgContainer,
+                              borderRadius: 8,
+                            }}
+                            onClick={() => setActiveConfigId(item.id)}
+                            styles={{ body: { padding: '8px 10px' } }}
+                          >
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                              <Badge
+                                status={
+                                  item.state === 'started' ? 'success'
+                                  : item.state === 'error' ? 'error'
+                                  : item.state === 'starting' || item.state === 'stopping' ? 'processing'
+                                  : 'default'
+                                }
+                              />
+                              <Text strong ellipsis style={{ fontSize: 13, flex: 1, minWidth: 0 }}>
+                                {item.name || item.id}
+                              </Text>
+                              <Button
+                                size="small"
+                                type="text"
+                                icon={isRunning ? <StopOutlined /> : <PlayCircleOutlined />}
+                                loading={statusLoading[item.id]}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  isRunning ? handleStopInstance(item.id) : handleStartInstance(item.id);
+                                }}
+                                style={{
+                                  color: isRunning ? token.colorError : token.colorSuccess,
+                                }}
+                              />
+                            </div>
+                          </Card>
+                        </Tooltip>
+                      </Dropdown>
+                    );
+                  }
+
                   return (
+                    <Dropdown menu={buildContextMenu(item)} trigger={['contextMenu']}>
                     <Card
                       hoverable
                       style={{
@@ -672,6 +1009,7 @@ const Configs: React.FC = () => {
                         </Space>
                       </div>
                     </Card>
+                    </Dropdown>
                   );
                 }}
               />
@@ -680,7 +1018,7 @@ const Configs: React.FC = () => {
         </Col>
 
         {/* 右栏：工作台面板 */}
-        <Col xs={24} md={16}>
+        <Col xs={24} md={compactList ? 19 : 16}>
           {activeConfigId ? (
             <Card
               bordered={false}
@@ -709,15 +1047,23 @@ const Configs: React.FC = () => {
                     children: (
                       <div>
                         <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '16px' }}>
-                          <Text type="secondary">内网代理配置规则，用于将本地端口穿透至公网服务器。</Text>
-                          <Button
-                            type="primary"
-                            icon={<PlusOutlined />}
-                            size="small"
-                            onClick={() => openProxyDrawer()}
-                          >
-                            添加规则
-                          </Button>
+                          <Text type="secondary">代理：把本地端口穿透到公网。访客：连接到对端 STCP/SUDP/XTCP 安全代理。</Text>
+                          <Space.Compact>
+                            <Button
+                              type="primary"
+                              icon={<PlusOutlined />}
+                              size="small"
+                              onClick={() => openProxyDrawer(undefined, 'proxy')}
+                            >
+                              添加代理
+                            </Button>
+                            <Button
+                              size="small"
+                              onClick={() => openProxyDrawer(undefined, 'visitor')}
+                            >
+                              添加访客
+                            </Button>
+                          </Space.Compact>
                         </div>
                         <Table
                           dataSource={proxies}
@@ -729,9 +1075,16 @@ const Configs: React.FC = () => {
                           className="custom-table"
                           columns={[
                             {
-                              title: '代理名称',
+                              title: '名称',
                               dataIndex: 'name',
-                              render: (_, record) => <Text>{record.name}</Text>
+                              render: (_, record) => (
+                                <Space size={6}>
+                                  {record._kind === 'visitor'
+                                    ? <Tag color="purple" bordered={false}>访客</Tag>
+                                    : <Tag color="geekblue" bordered={false}>代理</Tag>}
+                                  <Text>{record.name}</Text>
+                                </Space>
+                              )
                             },
                             {
                               title: '类型',
@@ -739,31 +1092,58 @@ const Configs: React.FC = () => {
                               render: (type) => <Tag color={type === 'http' || type === 'https' ? 'blue' : 'orange'}>{type?.toUpperCase()}</Tag>
                             },
                             {
-                              title: '本地地址',
-                              render: (_, record) => <Text type="secondary">{record.localIP}:{record.localPort}</Text>
-                            },
-                            {
-                              title: '公网代理端口',
-                              dataIndex: 'remotePort',
-                              render: (port, record) => {
-                                if (record.type === 'http' || record.type === 'https') {
-                                  return <Text type="secondary">{record.customDomains?.join(', ') || '自定义域名'}</Text>;
-                                }
-                                return <Text>{port || '-'}</Text>;
-                              }
-                            },
-                            {
-                              title: '状态',
-                              dataIndex: 'status',
+                              title: '本地 / 绑定',
                               render: (_, record) => {
+                                if (record._kind === 'visitor') {
+                                  return <Text type="secondary">{record.bindAddr || '127.0.0.1'}:{record.bindPort ?? '-'}</Text>;
+                                }
                                 return (
-                                  <Switch
-                                    checked={record.status !== 'disabled'}
-                                    size="small"
-                                    onChange={(checked) => handleToggleProxy(record.name, checked)}
-                                  />
+                                  <Text type="secondary">
+                                    {record.local_ip || record.localIP || '-'}
+                                    :
+                                    {record.local_port || record.localPort || '-'}
+                                  </Text>
                                 );
                               }
+                            },
+                            {
+                              title: '远端 / 服务名',
+                              render: (_, record) => {
+                                if (record._kind === 'visitor') {
+                                  return <Text type="secondary">{record.serverName || '-'}{record.serverUser ? ` (用户: ${record.serverUser})` : ''}</Text>;
+                                }
+                                if (record.type === 'http' || record.type === 'https') {
+                                  const domains = record.customDomains;
+                                  return <Text type="secondary">{domains && domains.length ? domains.join(', ') : (record.subdomain ? `*.${record.subdomain}` : '—')}</Text>;
+                                }
+                                if (record.type === 'tcpmux') {
+                                  const domains = record.customDomains;
+                                  return <Text type="secondary">{domains && domains.length ? domains.join(', ') : (record.multiplexer || '—')}</Text>;
+                                }
+                                return <Text>{record.remotePort ?? '-'}</Text>;
+                              }
+                            },
+                            {
+                              title: '运行状态',
+                              render: (_, record) => {
+                                const phase = record.status;
+                                if (record.disabled) return <Tag>已禁用</Tag>;
+                                if (phase === 'running') return <Tag color="success">运行中</Tag>;
+                                if (phase === 'new' || phase === 'start') return <Tag color="processing">启动中</Tag>;
+                                if (phase === 'check failed' || phase === 'error') return <Tag color="error">{phase}</Tag>;
+                                if (phase === 'closed') return <Tag>已关闭</Tag>;
+                                return <Tag>—</Tag>;
+                              }
+                            },
+                            {
+                              title: '开关',
+                              render: (_, record) => (
+                                <Switch
+                                  checked={!record.disabled}
+                                  size="small"
+                                  onChange={(checked) => handleToggleProxy(record.name, checked)}
+                                />
+                              )
                             },
                             {
                               title: '操作',
@@ -1037,6 +1417,18 @@ const Configs: React.FC = () => {
                                       </Form.Item>
                                     </Col>
                                   </Row>
+                                  <Row gutter={16}>
+                                    <Col span={12}>
+                                      <Form.Item
+                                        label={<span>登录失败行为 (loginFailExit)</span>}
+                                        name="loginFailExit"
+                                        valuePropName="checked"
+                                        tooltip="开：首次连接服务端失败直接退出。关：失败后无限重试，适合服务端偶尔重启的场景。"
+                                      >
+                                        <Switch checkedChildren="失败即退出" unCheckedChildren="持续重试" />
+                                      </Form.Item>
+                                    </Col>
+                                  </Row>
 
                                   <div style={{ borderTop: `1px solid ${token.colorBorderSecondary}`, margin: '16px 0 12px 0', paddingTop: 12 }}>
                                     <Text strong style={{ fontSize: 13 }}>FRP TLS 安全通讯</Text>
@@ -1110,27 +1502,66 @@ const Configs: React.FC = () => {
                     label: <Space><CodeOutlined />高级 TOML 配置</Space>,
                     children: (
                       <div>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-                          <Text type="secondary">直接编辑 TOML 代码以修改配置文件（保存时将自动调用语法校验）。</Text>
-                          <Button
-                            type="primary"
-                            icon={<CheckCircleOutlined />}
-                            onClick={handleSaveRawToml}
-                            loading={tomlLoading}
-                            style={{ background: '#52c41a', borderColor: '#52c41a' }}
-                          >
-                            校验并保存
-                          </Button>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px', gap: 12, flexWrap: 'wrap' }}>
+                          <Space size={8}>
+                            <Tag color="cyan" bordered={false}>TOML</Tag>
+                            <Text type="secondary" style={{ fontSize: 12 }}>
+                              CodeMirror 编辑器 · 语法高亮 · Ctrl+F 搜索 · 保存时自动调用 /validate
+                            </Text>
+                          </Space>
+                          <Space>
+                            <Tooltip title="刷新读取磁盘上的 TOML">
+                              <Button
+                                size="small"
+                                icon={<ReloadOutlined />}
+                                onClick={() => loadRawToml(activeConfigId)}
+                                loading={tomlLoading}
+                              />
+                            </Tooltip>
+                            <Button
+                              type="primary"
+                              icon={<CheckCircleOutlined />}
+                              onClick={handleSaveRawToml}
+                              loading={tomlLoading}
+                              style={{ background: '#52c41a', borderColor: '#52c41a' }}
+                            >
+                              校验并保存
+                            </Button>
+                          </Space>
                         </div>
-                        <Input.TextArea
-                          value={rawToml}
-                          onChange={(e) => setRawToml(e.target.value)}
-                          rows={15}
+                        <div
                           style={{
-                            fontFamily: 'ui-monospace, "Fira Code", monospace',
-                            fontSize: 13,
+                            border: `1px solid ${themeMode === 'dark' ? token.colorBorderSecondary : '#1f2933'}`,
+                            borderRadius: 8,
+                            overflow: 'hidden',
+                            background: '#0b0f14',
+                            boxShadow: 'inset 0 2px 8px rgba(0,0,0,0.5)',
                           }}
-                        />
+                        >
+                          <CodeMirror
+                            value={rawToml}
+                            onChange={(v) => setRawToml(v)}
+                            // TOML 编辑器始终用暗色系（oneDark），与整体 antd 主题脱钩 —
+                            // 让代码块拥有传统 IDE 那种"专注的深色编辑面板"视觉，浅色主题下也不刺眼
+                            theme={oneDark}
+                            extensions={tomlExtensions}
+                            height="calc(100vh - 320px)"
+                            minHeight="420px"
+                            maxHeight="78vh"
+                            basicSetup={{
+                              lineNumbers: true,
+                              foldGutter: true,
+                              highlightActiveLine: true,
+                              highlightActiveLineGutter: true,
+                              bracketMatching: true,
+                              closeBrackets: true,
+                              autocompletion: false,
+                              tabSize: 2,
+                              searchKeymap: true,
+                            }}
+                            style={{ fontSize: 13 }}
+                          />
+                        </div>
                       </div>
                     )
                   },
@@ -1139,16 +1570,75 @@ const Configs: React.FC = () => {
                     label: <Space><FileTextOutlined />运行日志速览</Space>,
                     children: (
                       <div>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '12px' }}>
-                          <Text type="secondary">近 200 行实例日志（若要看实时流请前往侧边栏"实时日志流"）。</Text>
-                          <Button size="small" icon={<ReloadOutlined />} onClick={() => loadMiniLogs(activeConfigId)}>刷新</Button>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '12px', gap: 12, flexWrap: 'wrap' }}>
+                          <Space size={10}>
+                            <Badge
+                              status={
+                                miniLogsWsState === 'connected' ? 'success'
+                                : miniLogsWsState === 'connecting' ? 'processing'
+                                : 'default'
+                              }
+                              text={
+                                <Text type="secondary" style={{ fontSize: 12 }}>
+                                  {miniLogsWsState === 'connected' ? '实时流接通'
+                                    : miniLogsWsState === 'connecting' ? '正在连接…'
+                                    : '已断开'} · 最近 {MINI_LOGS_MAX} 行
+                                </Text>
+                              }
+                            />
+                          </Space>
+                          <Space>
+                            <Switch
+                              size="small"
+                              checked={miniLogsPaused}
+                              onChange={setMiniLogsPaused}
+                              checkedChildren="已暂停"
+                              unCheckedChildren="实时滚动"
+                            />
+                            <Button
+                              size="small"
+                              icon={<DeleteOutlined />}
+                              onClick={() => setMiniLogLines([])}
+                            >
+                              清空
+                            </Button>
+                            <Button
+                              size="small"
+                              icon={<ReloadOutlined />}
+                              onClick={() => loadMiniLogs(activeConfigId)}
+                            >
+                              重连
+                            </Button>
+                          </Space>
                         </div>
-                        {logsLoading ? (
+                        {miniLogsLoading && miniLogLines.length === 0 ? (
                           <Skeleton active />
                         ) : (
-                          <pre className="terminal-container" style={{ height: '320px', margin: 0 }}>
-                            {miniLogs || '没有日志。'}
-                          </pre>
+                          <div
+                            className="terminal-container"
+                            style={{
+                              // 与「高级 TOML 配置」编辑器同款响应式高度，保持视觉一致
+                              height: 'calc(100vh - 320px)',
+                              minHeight: 420,
+                              maxHeight: '78vh',
+                              margin: 0,
+                              overflowY: 'auto',
+                              position: 'relative',
+                            }}
+                          >
+                            {miniLogLines.length === 0 ? (
+                              <div style={{ opacity: 0.5, padding: 16, textAlign: 'center' }}>
+                                暂无日志，等待 frpc 输出…
+                              </div>
+                            ) : (
+                              <>
+                                {miniLogLines.map((line, idx) => (
+                                  <div key={idx} className={miniLogClass(line)}>{line}</div>
+                                ))}
+                                <div ref={miniLogsBottomRef} />
+                              </>
+                            )}
+                          </div>
                         )}
                       </div>
                     )
@@ -1204,9 +1694,11 @@ const Configs: React.FC = () => {
         </Form>
       </Modal>
 
-      {/* 新建/编辑代理 Drawer */}
+      {/* 新建/编辑 代理 / 访客 Drawer */}
       <Drawer
-        title={editingProxy ? '编辑代理规则' : '添加代理规则'}
+        title={editingProxy
+          ? `编辑${editingProxy._kind === 'visitor' ? '访客' : '代理'}规则`
+          : '添加规则'}
         width={520}
         onClose={() => setProxyDrawerOpen(false)}
         open={proxyDrawerOpen}
@@ -1221,17 +1713,42 @@ const Configs: React.FC = () => {
         }
       >
         <Form form={proxyForm} layout="vertical" onFinish={handleSaveProxy}>
-          <Form.Item
-            label="代理规则名称 (唯一，如 ssh, web-test)"
-            name="name"
-            rules={[{ required: true, message: '请输入代理名称' }]}
-          >
-            <Input placeholder="ssh" disabled={!!editingProxy} />
+          {/* 资源类型：代理 (服务端) / 访客 (visitor) */}
+          <Form.Item label="资源类型" name="kind" initialValue="proxy" tooltip="代理：把本地端口暴露到公网。访客：连接到对端 STCP/SUDP/XTCP 安全代理。">
+            <Radio.Group
+              buttonStyle="solid"
+              disabled={!!editingProxy}
+              onChange={(e) => {
+                // 切换到 visitor 时，把类型自动落到 stcp（如果当前类型不在白名单内）
+                if (e.target.value === 'visitor') {
+                  const cur = proxyForm.getFieldValue('type');
+                  if (cur !== 'stcp' && cur !== 'sudp' && cur !== 'xtcp') {
+                    proxyForm.setFieldsValue({ type: 'stcp' });
+                  }
+                }
+              }}
+            >
+              <Radio.Button value="proxy">代理 (服务端)</Radio.Button>
+              <Radio.Button value="visitor">访客 (Visitor)</Radio.Button>
+            </Radio.Group>
           </Form.Item>
 
-          <Form.Item label="穿透协议类型" name="type" rules={[{ required: true }]} initialValue="tcp">
-            <Select
-              options={[
+          <Form.Item
+            label="规则名称 (唯一)"
+            name="name"
+            rules={[{ required: true, message: '请输入名称' }]}
+          >
+            <Input placeholder={proxyForm.getFieldValue('kind') === 'visitor' ? 'speed-test-visitor' : 'ssh'} disabled={!!editingProxy} />
+          </Form.Item>
+
+          {/* 类型下拉：随 kind 限制选项 */}
+          <Form.Item
+            noStyle
+            shouldUpdate={(prev, cur) => prev.kind !== cur.kind}
+          >
+            {({ getFieldValue }) => {
+              const kind = getFieldValue('kind') || 'proxy';
+              const fullOpts = [
                 { value: 'tcp', label: 'TCP — 通用端口转发' },
                 { value: 'udp', label: 'UDP — 通用 UDP 转发' },
                 { value: 'http', label: 'HTTP — 网站/API' },
@@ -1240,15 +1757,131 @@ const Configs: React.FC = () => {
                 { value: 'stcp', label: 'STCP — 安全 P2P (需共享密钥)' },
                 { value: 'sudp', label: 'SUDP — 安全 P2P UDP' },
                 { value: 'xtcp', label: 'XTCP — NAT 穿透 P2P' },
-              ]}
-            />
+              ];
+              const visitorOpts = fullOpts.filter((o) => ['stcp', 'sudp', 'xtcp'].includes(o.value));
+              return (
+                <Form.Item label="穿透协议类型" name="type" rules={[{ required: true }]} initialValue="tcp">
+                  <Select options={kind === 'visitor' ? visitorOpts : fullOpts} />
+                </Form.Item>
+              );
+            }}
           </Form.Item>
 
+          {/* ===== Visitor 模式表单区块 ===== */}
           <Form.Item
             noStyle
-            shouldUpdate={(prev, cur) => prev.type !== cur.type || prev.pluginName !== cur.pluginName}
+            shouldUpdate={(prev, cur) => prev.kind !== cur.kind || prev.type !== cur.type}
           >
             {({ getFieldValue }) => {
+              if (getFieldValue('kind') !== 'visitor') return null;
+              const type = getFieldValue('type');
+              return (
+                <>
+                  <Form.Item
+                    label="共享密钥 secretKey"
+                    name="secretKey"
+                    rules={[{ required: true, message: '访客必须填写与服务端一致的共享密钥' }]}
+                  >
+                    <Input.Password placeholder="与对端服务端代理相同的 secretKey" />
+                  </Form.Item>
+                  <Row gutter={12}>
+                    <Col span={14}>
+                      <Form.Item
+                        label="服务名 serverName"
+                        name="serverName"
+                        rules={[{ required: true, message: '请输入对端 STCP/SUDP/XTCP 代理的 name' }]}
+                      >
+                        <Input placeholder="speed-test-tcp" />
+                      </Form.Item>
+                    </Col>
+                    <Col span={10}>
+                      <Form.Item label="服务用户 serverUser" name="serverUser" tooltip="对端 frpc 的 user 前缀，未配置可空">
+                        <Input placeholder="ln2-node" />
+                      </Form.Item>
+                    </Col>
+                  </Row>
+                  <Row gutter={12}>
+                    <Col span={14}>
+                      <Form.Item label="本地绑定地址 bindAddr" name="bindAddr" initialValue="127.0.0.1">
+                        <Input placeholder="127.0.0.1" />
+                      </Form.Item>
+                    </Col>
+                    <Col span={10}>
+                      <Form.Item
+                        label="本地绑定端口 bindPort"
+                        name="bindPort"
+                        rules={[{ required: true, message: '请输入访客监听端口' }]}
+                      >
+                        <InputNumber min={-1} max={65535} style={{ width: '100%' }} placeholder="12081" />
+                      </Form.Item>
+                    </Col>
+                  </Row>
+                  <Row gutter={12}>
+                    <Col span={12}>
+                      <Form.Item label="加密传输" name="useEncryption" valuePropName="checked">
+                        <Switch checkedChildren="启用" unCheckedChildren="关闭" />
+                      </Form.Item>
+                    </Col>
+                    <Col span={12}>
+                      <Form.Item label="压缩传输" name="useCompression" valuePropName="checked">
+                        <Switch checkedChildren="启用" unCheckedChildren="关闭" />
+                      </Form.Item>
+                    </Col>
+                  </Row>
+
+                  {type === 'xtcp' && (
+                    <div style={{ borderTop: `1px solid ${token.colorBorderSecondary}`, paddingTop: 12, marginTop: 4 }}>
+                      <Text strong style={{ fontSize: 13 }}>XTCP 访客高级参数</Text>
+                      <Row gutter={12} style={{ marginTop: 8 }}>
+                        <Col span={12}>
+                          <Form.Item label="P2P 协议 protocol" name="xtcpProtocol" initialValue="quic">
+                            <Select options={[{ value: 'quic', label: 'QUIC (默认)' }, { value: 'kcp', label: 'KCP' }]} />
+                          </Form.Item>
+                        </Col>
+                        <Col span={12}>
+                          <Form.Item label="保持隧道常开" name="keepTunnelOpen" valuePropName="checked">
+                            <Switch checkedChildren="开" unCheckedChildren="关" />
+                          </Form.Item>
+                        </Col>
+                      </Row>
+                      <Row gutter={12}>
+                        <Col span={12}>
+                          <Form.Item label="每小时最大重试 maxRetriesAnHour" name="maxRetriesAnHour">
+                            <InputNumber min={0} max={100} style={{ width: '100%' }} placeholder="8" />
+                          </Form.Item>
+                        </Col>
+                        <Col span={12}>
+                          <Form.Item label="最小重试间隔 (秒)" name="minRetryInterval">
+                            <InputNumber min={0} style={{ width: '100%' }} placeholder="90" />
+                          </Form.Item>
+                        </Col>
+                      </Row>
+                      <Row gutter={12}>
+                        <Col span={14}>
+                          <Form.Item label="回退到 (fallbackTo)" name="fallbackTo" tooltip="P2P 失败时切换到这个访客名">
+                            <Input placeholder="另一个 visitor 的 name" />
+                          </Form.Item>
+                        </Col>
+                        <Col span={10}>
+                          <Form.Item label="回退超时 (ms)" name="fallbackTimeoutMs">
+                            <InputNumber min={0} style={{ width: '100%' }} placeholder="1000" />
+                          </Form.Item>
+                        </Col>
+                      </Row>
+                    </div>
+                  )}
+                </>
+              );
+            }}
+          </Form.Item>
+
+          {/* ===== Proxy 模式表单区块 ===== */}
+          <Form.Item
+            noStyle
+            shouldUpdate={(prev, cur) => prev.kind !== cur.kind || prev.type !== cur.type || prev.pluginName !== cur.pluginName}
+          >
+            {({ getFieldValue }) => {
+              if (getFieldValue('kind') === 'visitor') return null;
               const usingPlugin = !!getFieldValue('pluginName');
               return (
                 <>
@@ -1267,12 +1900,13 @@ const Configs: React.FC = () => {
             }}
           </Form.Item>
 
-          {/* 类型相关字段 */}
+          {/* Proxy 类型相关字段 */}
           <Form.Item
             noStyle
-            shouldUpdate={(prev, cur) => prev.type !== cur.type}
+            shouldUpdate={(prev, cur) => prev.kind !== cur.kind || prev.type !== cur.type}
           >
             {({ getFieldValue }) => {
+              if (getFieldValue('kind') === 'visitor') return null;
               const type = getFieldValue('type');
               if (type === 'http' || type === 'https') {
                 return (
@@ -1346,41 +1980,40 @@ const Configs: React.FC = () => {
             }}
           </Form.Item>
 
-          {/* 插件透传（高级） */}
-          <Form.Item
-            label="高级：使用本地插件代替 local 端口"
-            name="pluginName"
-            tooltip="选择后将由 frpc 内置插件提供后端服务，可不填本地 IP/端口"
-          >
-            <Select
-              allowClear
-              placeholder="可选：选择插件以替代 local 端口"
-              options={[
-                { value: 'http_proxy', label: 'http_proxy — HTTP 代理' },
-                { value: 'socks5', label: 'socks5 — SOCKS5 代理' },
-                { value: 'static_file', label: 'static_file — 静态文件服务' },
-                { value: 'unix_domain_socket', label: 'unix_domain_socket' },
-                { value: 'http2http', label: 'http2http' },
-                { value: 'http2https', label: 'http2https' },
-                { value: 'https2http', label: 'https2http' },
-                { value: 'https2https', label: 'https2https' },
-                { value: 'tls2raw', label: 'tls2raw' },
-              ]}
-            />
-          </Form.Item>
-
+          {/* 插件透传（高级，仅代理可用） */}
           <Form.Item
             noStyle
-            shouldUpdate={(prev, cur) => prev.pluginName !== cur.pluginName}
+            shouldUpdate={(prev, cur) => prev.kind !== cur.kind || prev.pluginName !== cur.pluginName}
           >
             {({ getFieldValue }) => {
+              if (getFieldValue('kind') === 'visitor') return null;
               const p = getFieldValue('pluginName');
-              if (!p) return null;
-              const needsLocalAddr = ['http2http', 'http2https', 'https2http', 'https2https', 'tls2raw'].includes(p);
+              const needsLocalAddr = !!p && ['http2http', 'http2https', 'https2http', 'https2https', 'tls2raw'].includes(p);
               const needsLocalPath = p === 'static_file' || p === 'unix_domain_socket';
               const needsAuth = p === 'http_proxy' || p === 'socks5' || p === 'static_file';
               return (
                 <>
+                  <Form.Item
+                    label="高级：使用本地插件代替 local 端口"
+                    name="pluginName"
+                    tooltip="选择后将由 frpc 内置插件提供后端服务，可不填本地 IP/端口"
+                  >
+                    <Select
+                      allowClear
+                      placeholder="可选：选择插件以替代 local 端口"
+                      options={[
+                        { value: 'http_proxy', label: 'http_proxy — HTTP 代理' },
+                        { value: 'socks5', label: 'socks5 — SOCKS5 代理' },
+                        { value: 'static_file', label: 'static_file — 静态文件服务' },
+                        { value: 'unix_domain_socket', label: 'unix_domain_socket' },
+                        { value: 'http2http', label: 'http2http' },
+                        { value: 'http2https', label: 'http2https' },
+                        { value: 'https2http', label: 'https2http' },
+                        { value: 'https2https', label: 'https2https' },
+                        { value: 'tls2raw', label: 'tls2raw' },
+                      ]}
+                    />
+                  </Form.Item>
                   {needsLocalAddr && (
                     <Form.Item label="插件 localAddr" name="pluginLocalAddr" rules={[{ required: true }]}>
                       <Input placeholder="127.0.0.1:8080" />

@@ -105,6 +105,7 @@ type ProxySnapshot struct {
 	LocalIP    string `json:"local_ip,omitempty"`
 	LocalPort  string `json:"local_port,omitempty"`
 	CurConns   int    `json:"cur_conns"`
+	Disabled   bool   `json:"disabled"`
 }
 
 // Snapshot returns a JSON-friendly status view, optionally including
@@ -154,6 +155,7 @@ func (i *instance) proxySnapshots() []ProxySnapshot {
 				Type:      p.Type,
 				LocalIP:   p.LocalIP,
 				LocalPort: p.LocalPort,
+				Disabled:  p.Disabled,
 			}
 			if st, ok := i.proxyStats[alias]; ok && st != nil {
 				ps.Status = st.Phase
@@ -326,10 +328,21 @@ func (i *instance) runLoop(ctx context.Context, svc *services.FrpClientService) 
 	}()
 	select {
 	case <-ctx.Done():
+		// caller asked us to stop (Stop / Shutdown). best-effort close.
+		svc.Stop(false)
 	case <-doneCh:
+		// frpc terminated on its own (login fail, ctx-internal exit).
+		// Surface this through state so reload / UI badges stay honest,
+		// and proxy stats are cleared.
+		svc.Stop(false)
+		i.mu.Lock()
+		i.svc = nil
+		i.cancel = nil
+		i.mu.Unlock()
+		i.clearProxyStats()
+		i.setState(consts.ConfigStateStopped)
+		i.logger.Info("instance exited on its own")
 	}
-	// best-effort close on context cancel
-	svc.Stop(false)
 }
 
 func (i *instance) statusPoller(ctx context.Context, svc *services.FrpClientService) {

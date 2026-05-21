@@ -12,6 +12,7 @@ const Events = lazy(() => import('./pages/Events'));
 const SystemPage = lazy(() => import('./pages/System'));
 const ToolsValidate = lazy(() => import('./pages/ToolsValidate'));
 const ToolsNat = lazy(() => import('./pages/ToolsNat'));
+const TomlReference = lazy(() => import('./pages/TomlReference'));
 const Settings = lazy(() => import('./pages/Settings'));
 
 const PageFallback = (
@@ -45,6 +46,7 @@ function App() {
               <Route index element={<Navigate to="/tools/validate" replace />} />
               <Route path="validate" element={<ToolsValidate />} />
               <Route path="nat" element={<ToolsNat />} />
+              <Route path="reference" element={<TomlReference />} />
             </Route>
             <Route path="import-export" element={<ImportExport />} />
             <Route path="settings" element={<Settings />} />

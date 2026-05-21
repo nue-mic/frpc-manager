@@ -12,6 +12,7 @@ import {
   PoweroffOutlined,
   SafetyCertificateOutlined,
   ApiOutlined,
+  BookOutlined,
 } from '@ant-design/icons';
 import type { MenuProps } from 'antd';
 import { useNavigate, useLocation, Outlet } from 'react-router-dom';
@@ -104,6 +105,7 @@ const MainLayout: React.FC = () => {
         children: [
           { key: '/tools/validate', icon: <ToolOutlined />, label: '配置校验' },
           { key: '/tools/nat', icon: <ApiOutlined />, label: 'NAT 探测' },
+          { key: '/tools/reference', icon: <BookOutlined />, label: 'TOML 参考' },
           { key: '/import-export', icon: <SwapOutlined />, label: '导入 / 导出' },
         ],
       },
@@ -120,7 +122,7 @@ const MainLayout: React.FC = () => {
   // 根据 path 选中：取首段或两段做匹配
   const selectedKey = useMemo(() => {
     const p = location.pathname;
-    const candidates = ['/tools/validate', '/tools/nat', '/import-export'];
+    const candidates = ['/tools/validate', '/tools/nat', '/tools/reference', '/import-export'];
     for (const c of candidates) if (p.startsWith(c)) return c;
     const seg = '/' + p.split('/').filter(Boolean)[0];
     return seg || '/dashboard';
