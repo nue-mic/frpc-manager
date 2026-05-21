@@ -9,9 +9,15 @@
 # 设计目标：在任何环境（CI / 干净 git clone / 本地）都能直接
 # `docker build -f deploy/Dockerfile .`，不需要任何前置 npm/make 步骤。
 # .dockerignore 已排除 web/dist —— 永远从 web-build 阶段生成新鲜的产物。
+#
+# Multi-arch (amd64 + arm64) 关键优化：
+#   web-build / build 阶段都用 --platform=$BUILDPLATFORM 锁在原生 CPU 上，
+#   依赖 Go 自带的 GOOS/GOARCH 交叉编译产出目标架构二进制。否则 buildx
+#   会用 QEMU 把 npm install 整套仿真出来，arm64 上慢 20-50 倍，
+#   GitHub Actions 单次构建动辄 30 分钟仍未结束。
 
-# ----- web build stage --------------------------------------------------
-FROM node:20-alpine AS web-build
+# ----- web build stage (永远跑在原生 CPU) -------------------------------
+FROM --platform=$BUILDPLATFORM node:20-alpine AS web-build
 WORKDIR /web
 
 # 单独 COPY package*.json 让 npm ci 这一层尽量命中缓存。
@@ -25,8 +31,8 @@ RUN npm ci --no-audit --no-fund --legacy-peer-deps
 COPY web/ ./
 RUN npm run build
 
-# ----- go build stage ---------------------------------------------------
-FROM golang:1.25-alpine AS build
+# ----- go build stage (永远跑在原生 CPU，靠 Go 交叉编译产出目标架构) ----
+FROM --platform=$BUILDPLATFORM golang:1.25-alpine AS build
 WORKDIR /src
 RUN apk add --no-cache git ca-certificates tzdata
 
@@ -38,9 +44,13 @@ COPY . .
 # //go:embed dist 现在能拿到完整、最新的前端
 COPY --from=web-build /web/dist ./web/dist
 
+# buildx 多平台构建时会为每个 target 自动注入 TARGETOS / TARGETARCH；
+# 单平台 docker build 默认 linux/amd64
+ARG TARGETOS=linux
+ARG TARGETARCH=amd64
 ARG VERSION=dev
 ARG BUILD_DATE=unknown
-RUN CGO_ENABLED=0 GOOS=linux go build \
+RUN CGO_ENABLED=0 GOOS=${TARGETOS} GOARCH=${TARGETARCH} go build \
     -trimpath \
     -ldflags="-s -w \
       -X github.com/mia-clark/frp-manager-server/pkg/version.Number=${VERSION} \
