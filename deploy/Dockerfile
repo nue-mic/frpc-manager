@@ -14,9 +14,12 @@
 FROM node:20-alpine AS web-build
 WORKDIR /web
 
-# 单独 COPY package*.json 让 npm ci 这一层尽量命中缓存
+# 单独 COPY package*.json 让 npm ci 这一层尽量命中缓存。
+# --legacy-peer-deps：openapi-typescript@7.x 声明 peer typescript@^5，
+# 而本项目用 typescript@6.x —— 实际使用没冲突，但严格模式 npm ci 会拒绝。
+# 与本地 package-lock.json 生成时使用的策略保持一致。
 COPY web/package.json web/package-lock.json ./
-RUN npm ci --no-audit --no-fund
+RUN npm ci --no-audit --no-fund --legacy-peer-deps
 
 # 拷剩余源码后 build
 COPY web/ ./
