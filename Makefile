@@ -37,10 +37,10 @@ tidy:
 clean:
 	rm -rf bin/ web/dist/
 
-# Docker 镜像构建：先在宿主机 npm build 生成 web/dist/，再交给
-# Dockerfile 的 COPY . . 把 dist 一并拷进去，让 //go:embed dist 工作。
-# 这样 Dockerfile 保持单一职责（只跑 go build），不必拉 node 镜像层。
-docker: web
+# Docker 镜像构建：Dockerfile 自带 node:20 + golang:1.25 多阶段，
+# 内部完成 npm build + go build。任何环境（本地 / CI / 干净 clone）
+# 都可直接跑，无前置依赖。
+docker:
 	docker build -f deploy/Dockerfile -t frpmgr-server:$(VERSION) \
 	  --build-arg VERSION=$(VERSION) \
 	  --build-arg BUILD_DATE=$(BUILD_DATE) \

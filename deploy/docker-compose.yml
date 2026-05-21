@@ -1,14 +1,10 @@
 # ============================================================================
-# 本地源码构建专用 compose 文件 —— `docker compose -f deploy/docker-compose.yml up --build`
+# 本地源码构建专用 compose 文件
 #
-# ⚠️ 重要：构建前必须先在仓库根目录跑前端 build，生成 web/dist/ 才能让
-# Go 的 //go:embed dist 工作。推荐用 `make docker`（自动 npm build + docker build）
-# 一步到位；或者手动两步：
-#
-#   cd web && npm ci && npm run build && cd ..
 #   docker compose -f deploy/docker-compose.yml up --build -d
 #
-# 否则镜像里的 WebUI 会是空白或旧版本。
+# Dockerfile 内置 node:20 + go 多阶段构建 — npm install/build 都在镜像内完成，
+# 宿主机无需 Node 环境，也不用先跑任何 npm 命令。
 # ============================================================================
 
 services:

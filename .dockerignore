@@ -9,12 +9,12 @@ docs/
 .golangci.yml
 .gitignore
 
-# 前端开发产物 —— web/dist/ 必须保留（//go:embed dist 需要它），
-# 但 node_modules / vite 缓存 / source map 等可以全部丢掉，
-# 让 build context 上传更快。
+# 前端产物 —— Dockerfile 的 web-build 阶段会在镜像内重新 npm build，
+# 所以根上下文里的 web/dist 一律排除（无论新旧），保证镜像构建可重复且
+# 不被宿主机的脏 dist 污染。
 web/node_modules/
 web/.vite/
-web/dist/**/*.map
+web/dist/
 
 # Windows 本地构建产物
 *.exe
