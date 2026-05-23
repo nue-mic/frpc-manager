@@ -154,7 +154,7 @@ curl -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
 ```json
 "frpmgr": {
   "name": "human readable label",
-  "manualStart": true,
+  "manualStart": true,        // true = 仅手动启动；false / 缺省 = daemon 启动时自动 Start
   "autoDelete": {
     "method": "relative",   // or "absolute"
     "afterDays": 7,
@@ -162,6 +162,9 @@ curl -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
   }
 }
 ```
+
+> daemon 重启行为：所有 `manualStart != true` 的实例都会在 `frpmgrd serve` 启动时被自动拉起；想要某实例随 daemon 启停"持久关闭"，把 `manualStart` 置为 `true` 后保存即可。启动顺序遵循 `meta.json` 的 `sort` 列表。
+
 
 ## 流量与连接数指标(重要)
 

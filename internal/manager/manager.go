@@ -97,10 +97,48 @@ func (m *Manager) LoadAll() error {
 	return nil
 }
 
-// AutoStart launches every instance flagged in meta.json. Errors are
-// logged but do not abort the daemon.
+// AutoStart launches every loaded instance whose config does NOT have
+// frpmgr.manualStart=true. Default (unset / false) means auto-start, so
+// fresh imports come up on daemon boot without extra setup. Errors are
+// logged but do not abort the daemon. Instances are started in the
+// order recorded by meta.json (unknown ids fall back to id order) so
+// boot sequence is deterministic across restarts.
 func (m *Manager) AutoStart() {
-	for _, id := range m.meta.snapshot().AutoStart {
+	m.mu.RLock()
+	ids := make([]string, 0, len(m.instances))
+	for id := range m.instances {
+		ids = append(ids, id)
+	}
+	m.mu.RUnlock()
+
+	order := m.meta.snapshot().Sort
+	idx := make(map[string]int, len(order))
+	for i, id := range order {
+		idx[id] = i
+	}
+	sort.SliceStable(ids, func(a, b int) bool {
+		ia, oka := idx[ids[a]]
+		ib, okb := idx[ids[b]]
+		switch {
+		case oka && okb:
+			return ia < ib
+		case oka:
+			return true
+		case okb:
+			return false
+		default:
+			return ids[a] < ids[b]
+		}
+	})
+
+	for _, id := range ids {
+		inst := m.get(id)
+		if inst == nil {
+			continue
+		}
+		if data := inst.Data(); data != nil && data.ManualStart {
+			continue
+		}
 		if err := m.Start(id); err != nil {
 			m.opts.Logger.Warn("auto-start failed", slog.String("id", id), slog.Any("err", err))
 		}
@@ -267,10 +305,7 @@ func (m *Manager) Start(id string) error {
 	if inst == nil {
 		return ErrNotFound
 	}
-	if err := inst.start(m.rootCtx); err != nil {
-		return err
-	}
-	return m.meta.markAutoStart(id, true)
+	return inst.start(m.rootCtx)
 }
 
 // Stop terminates the instance. No-op if already stopped.
@@ -279,10 +314,7 @@ func (m *Manager) Stop(id string) error {
 	if inst == nil {
 		return ErrNotFound
 	}
-	if err := inst.stop(); err != nil {
-		return err
-	}
-	return m.meta.markAutoStart(id, false)
+	return inst.stop()
 }
 
 // Reload hot-reloads the underlying frp service after re-parsing the file.

@@ -396,7 +396,6 @@ const Configs: React.FC = () => {
           // 本项目 NewDefaultClientConfigV1 默认为 false，与上游 frp 不同。
           loginFailExit: configData.loginFailExit ?? false,
           manualStart: configData.frpmgr?.manualStart ?? false,
-          autoDelete: configData.frpmgr?.autoDelete ?? false,
           // 认证
           authMethod: configData.auth?.method || 'token',
           authToken: configData.auth?.token || '',
@@ -589,17 +588,17 @@ const Configs: React.FC = () => {
             }
           },
           frpmgr: {
+            ...(detailConfig?.config?.frpmgr ?? {}),
             name: values.name,
             manualStart: values.manualStart,
-            autoDelete: values.autoDelete,
           }
         }
       };
       await client.put(`/api/v1/configs/${activeConfigId}`, payload);
       message.success('配置保存成功！');
       fetchConfigs();
-    } catch (err) {
-      message.error('保存失败');
+    } catch (err: any) {
+      message.error('保存失败: ' + (err.response?.data?.error?.message || err.message || ''));
     }
   };
 

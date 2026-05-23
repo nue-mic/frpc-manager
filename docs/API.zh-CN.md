@@ -551,7 +551,7 @@ STUN 失败：`502 / upstream_failure`。
   // frpmgr 扩展（本项目独有）
   "frpmgr": {
     "name": "我的实例",
-    "manualStart": false,
+    "manualStart": false,                            // false(默认)=daemon 启动时自动 Start；true=仅手动启动
     "autoDelete": {
       "afterDate": "2026-12-31T00:00:00Z",          // 到期自删
       "deleteMethod": "relative",                    // "absolute" | "relative"
