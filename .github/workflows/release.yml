@@ -1,61 +1,224 @@
 name: Release
 
+# 全自动发布工作流
+#   - push main      → 自动 bump patch + tag + 构建二进制 + 推 Docker 镜像
+#   - workflow_dispatch → 手动选择 patch/minor/major bump（兜底入口）
+#
+# 流程：
+#   bump  : 算出下一个版本号 → 改 pkg/version/version.go 默认值 → commit [skip ci] + tag + push
+#   goreleaser / docker : 并行 checkout 刚打的 tag，分别出二进制 + 多架构镜像
+
 on:
   push:
-    tags: ['v*']
+    branches: [main]
   workflow_dispatch:
     inputs:
-      tag:
-        description: 'Tag to release (e.g. v0.1.0); leave empty to snapshot'
-        required: false
-        type: string
+      bump:
+        description: 'Version bump type'
+        type: choice
+        options: [patch, minor, major]
+        default: patch
 
 permissions:
-  contents: write   # publish releases + upload assets
-  packages: write   # in case future versions add container release here
+  contents: write   # bump 需要 push commit + tag；release 需要发 release
+  packages: write   # docker 推 GHCR
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
 
 jobs:
-  goreleaser:
-    name: Cross-compile & publish
+  # ---------------------------------------------------------------------------
+  # Job 0 — gate: 发版前自检（保证发出去的二进制是 green 的）
+  # ---------------------------------------------------------------------------
+  gate:
+    name: Vet & test (release gate)
     runs-on: ubuntu-latest
+    # 防止 bump 自己 push 的 commit 再次进来死循环
+    # GITHUB_TOKEN push 默认不会级联触发 workflow，这里再加 [skip ci] 兜底
+    if: "!contains(github.event.head_commit.message, '[skip ci]') && !contains(github.event.head_commit.message, 'chore(release):')"
     steps:
       - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0   # goreleaser needs full history for changelog
 
       - uses: actions/setup-go@v5
         with:
           go-version: '1.25'
           cache: true
 
-      - name: Verify GoReleaser config
-        uses: goreleaser/goreleaser-action@v6
-        with:
-          version: '~> v2'
-          args: check
+      - name: go vet
+        run: go vet ./...
 
-      - name: Snapshot build (manual dispatch without tag)
-        if: github.event_name == 'workflow_dispatch' && inputs.tag == ''
-        uses: goreleaser/goreleaser-action@v6
+      - name: go test
+        run: go test ./...
+
+  # ---------------------------------------------------------------------------
+  # Job 1 — 计算版本号、回写源码、commit + tag
+  # ---------------------------------------------------------------------------
+  bump:
+    name: Compute next version & tag
+    needs: gate
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.next.outputs.version }}
+      tag: ${{ steps.next.outputs.tag }}
+    steps:
+      - uses: actions/checkout@v4
         with:
-          version: '~> v2'
-          args: release --snapshot --clean --skip=publish
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Compute next version
+        id: next
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          BUMP: ${{ github.event.inputs.bump || 'patch' }}
+        run: |
+          set -euo pipefail
+          # 拿最新 vX.Y.Z tag，没有就从 v0.0.0 起步
+          latest="$(git tag --list 'v[0-9]*.[0-9]*.[0-9]*' --sort=-v:refname | head -n 1)"
+          if [ -z "$latest" ]; then
+            latest="v0.0.0"
+          fi
+          echo "Latest tag: $latest"
 
-      - name: Release (tag push or manual dispatch with tag)
-        if: startsWith(github.ref, 'refs/tags/v') || (github.event_name == 'workflow_dispatch' && inputs.tag != '')
-        uses: goreleaser/goreleaser-action@v6
+          # 拆 major.minor.patch
+          ver="${latest#v}"
+          IFS='.' read -r major minor patch <<< "$ver"
+
+          case "$BUMP" in
+            major) major=$((major + 1)); minor=0; patch=0 ;;
+            minor) minor=$((minor + 1)); patch=0 ;;
+            patch|*) patch=$((patch + 1)) ;;
+          esac
+
+          version="${major}.${minor}.${patch}"
+          tag="v${version}"
+          echo "Next tag: $tag (bump=$BUMP)"
+
+          echo "version=${version}" >> "$GITHUB_OUTPUT"
+          echo "tag=${tag}" >> "$GITHUB_OUTPUT"
+
+      - name: Write version into pkg/version/version.go
+        env:
+          VERSION: ${{ steps.next.outputs.version }}
+        run: |
+          set -euo pipefail
+          # 把 Number = "..." 改成新版本号（保留引号，跟原文件风格一致）
+          # 用 $ENV{VERSION} 让 perl 直接读环境变量，避开 shell 引号嵌套
+          perl -i -pe 's/^(\s*Number\s*=\s*)"[^"]*"/$1 . qq{"$ENV{VERSION}"}/e' pkg/version/version.go
+          echo "--- pkg/version/version.go after bump ---"
+          cat pkg/version/version.go
+          # 防御：如果没替换成功就直接失败，避免发出错版本
+          grep -q "Number = \"${VERSION}\"" pkg/version/version.go
+
+      - name: Commit & tag
+        env:
+          TAG: ${{ steps.next.outputs.tag }}
+          VERSION: ${{ steps.next.outputs.version }}
+        run: |
+          set -euo pipefail
+          git config user.name  'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+
+          git add pkg/version/version.go
+          # 如果 version.go 没变化（极少见，比如手动 bump 同版本），就只打 tag
+          if git diff --cached --quiet; then
+            echo "No source change; only tagging."
+          else
+            git commit -m "chore(release): ${TAG} [skip ci]"
+          fi
+
+          git tag -a "${TAG}" -m "Release ${TAG}"
+          git push origin HEAD:main
+          git push origin "${TAG}"
+
+  # ---------------------------------------------------------------------------
+  # Job 2 — goreleaser 跨平台二进制 + GitHub Release
+  # ---------------------------------------------------------------------------
+  goreleaser:
+    name: Build binaries & publish release
+    needs: bump
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.bump.outputs.tag }}
+          fetch-depth: 0
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.25'
+          cache: true
+
+      - uses: goreleaser/goreleaser-action@v6
         with:
           version: '~> v2'
           args: release --clean
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Upload snapshot artifacts
-        if: github.event_name == 'workflow_dispatch' && inputs.tag == ''
-        uses: actions/upload-artifact@v4
+  # ---------------------------------------------------------------------------
+  # Job 3 — 多架构 Docker 镜像推 GHCR
+  # ---------------------------------------------------------------------------
+  docker:
+    name: Build & push multi-arch image
+    needs: bump
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
         with:
-          name: frpmgrd-snapshot
-          path: dist/*
-          retention-days: 7
+          ref: ${{ needs.bump.outputs.tag }}
+
+      - uses: docker/setup-qemu-action@v3
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Compute image metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          # tag 形态 vX.Y.Z 会被 metadata-action 识别为 semver，自动生成 :X.Y.Z / :X.Y / :X / :latest
+          tags: |
+            type=semver,pattern={{version}},value=${{ needs.bump.outputs.tag }}
+            type=semver,pattern={{major}}.{{minor}},value=${{ needs.bump.outputs.tag }}
+            type=semver,pattern={{major}},value=${{ needs.bump.outputs.tag }}
+            type=raw,value=latest
+            type=sha,prefix=sha-,format=short
+          labels: |
+            org.opencontainers.image.title=frpmgr-server
+            org.opencontainers.image.description=Headless FRP client manager with REST + WebSocket API
+            org.opencontainers.image.licenses=GPL-3.0
+            org.opencontainers.image.version=${{ needs.bump.outputs.version }}
+
+      - name: Build & push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: deploy/Dockerfile
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          build-args: |
+            VERSION=${{ needs.bump.outputs.version }}
+            BUILD_DATE=${{ github.event.repository.updated_at }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Summary
+        run: |
+          echo "## Pushed images" >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+          echo "${{ steps.meta.outputs.tags }}" >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
