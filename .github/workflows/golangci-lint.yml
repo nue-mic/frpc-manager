@@ -12,6 +12,19 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # web/web.go 用 //go:embed dist，缺 dist 时 lint 类型检查会失败
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      - name: Build web/dist
+        run: |
+          cd web
+          npm ci --no-audit --no-fund --legacy-peer-deps
+          npm run build
+
       - uses: actions/setup-go@v5
         with:
           go-version: '1.25'

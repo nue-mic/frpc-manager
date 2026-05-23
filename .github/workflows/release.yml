@@ -44,6 +44,19 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # web/web.go 用 //go:embed dist，没有 dist 目录 go vet/test/build 都会失败
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      - name: Build web/dist
+        run: |
+          cd web
+          npm ci --no-audit --no-fund --legacy-peer-deps
+          npm run build
+
       - uses: actions/setup-go@v5
         with:
           go-version: '1.25'
@@ -147,6 +160,19 @@ jobs:
         with:
           ref: ${{ needs.bump.outputs.tag }}
           fetch-depth: 0
+
+      # 同 gate：goreleaser 跑 go build 时 //go:embed dist 需要 web/dist 存在
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      - name: Build web/dist
+        run: |
+          cd web
+          npm ci --no-audit --no-fund --legacy-peer-deps
+          npm run build
 
       - uses: actions/setup-go@v5
         with:
