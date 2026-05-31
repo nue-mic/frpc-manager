@@ -631,6 +631,7 @@ const Configs: React.FC = () => {
       const payload = {
         id: values.id,
         config: {
+          user: values.user || undefined,
           serverAddr: values.serverAddr || '127.0.0.1',
           serverPort: values.serverPort || 7000,
           auth: {
@@ -723,7 +724,8 @@ const Configs: React.FC = () => {
         // STCP / SUDP / XTCP（服务端角色）
         if (t === 'stcp' || t === 'sudp' || t === 'xtcp') {
           payload.secretKey = values.secretKey;
-          if (values.allowUsers) payload.allowUsers = splitCSV(values.allowUsers);
+          // allowUsers 留空时默认放行所有用户（*）
+          payload.allowUsers = splitCSV(values.allowUsers) ?? ['*'];
         }
         // 插件透传
         if (values.pluginName) {
@@ -749,6 +751,16 @@ const Configs: React.FC = () => {
     } catch (err: any) {
       message.error('操作失败: ' + (err.response?.data?.error?.message || err.message));
     }
+  };
+
+  // 随机生成一个「专业、简短、符合大厂规范」的规则名。
+  // 规范：全小写 kebab-case，<服务角色>-<协议/区域>-<短随机ID>，参考 AWS/GCP/K8s 资源命名。
+  const genRuleName = (): string => {
+    const roles = ['web', 'api', 'gw', 'ssh', 'rdp', 'db', 'cache', 'mq', 'file', 'vpn', 'mon', 'log', 'edge', 'sync', 'app'];
+    const role = roles[Math.floor(Math.random() * roles.length)];
+    // 4 位 base36 短 ID 保证唯一性，又不至于太长
+    const id = Math.random().toString(36).slice(2, 6);
+    return `${role}-${id}`;
   };
 
   // 开启 Drawer（新建 / 编辑）
@@ -803,6 +815,7 @@ const Configs: React.FC = () => {
         localIP: '127.0.0.1',
         bindAddr: '127.0.0.1',
         xtcpProtocol: 'quic',
+        allowUsers: '*',
       });
     }
     setProxyDrawerOpen(true);
@@ -1685,6 +1698,9 @@ const Configs: React.FC = () => {
           <Form.Item label="显示名称备注" name="name">
             <Input placeholder="例如: 公司内网测试" />
           </Form.Item>
+          <Form.Item label="节点用户名 (User)" name="user" tooltip="frpc 的 user 前缀，用于在服务端区分不同节点，可空">
+            <Input placeholder="例如: dt-116-node" />
+          </Form.Item>
           <Form.Item label="FRP 服务端地址" name="serverAddr" initialValue="127.0.0.1">
             <Input placeholder="例如: 8.8.8.8" />
           </Form.Item>
@@ -1708,7 +1724,8 @@ const Configs: React.FC = () => {
         title={editingProxy
           ? `编辑${editingProxy._kind === 'visitor' ? '访客' : '代理'}规则`
           : '添加规则'}
-        width={520}
+        width={640}
+        maskClosable={false}
         onClose={() => setProxyDrawerOpen(false)}
         open={proxyDrawerOpen}
         styles={{ body: { paddingBottom: 80 } }}
@@ -1747,7 +1764,17 @@ const Configs: React.FC = () => {
             name="name"
             rules={[{ required: true, message: '请输入名称' }]}
           >
-            <Input placeholder={proxyForm.getFieldValue('kind') === 'visitor' ? 'speed-test-visitor' : 'ssh'} disabled={!!editingProxy} />
+            <Input
+              placeholder={proxyForm.getFieldValue('kind') === 'visitor' ? 'speed-test-visitor' : 'ssh'}
+              disabled={!!editingProxy}
+              addonAfter={editingProxy ? undefined : (
+                <Tooltip title="随机生成专业规则名">
+                  <a onClick={() => proxyForm.setFieldsValue({ name: genRuleName() })}>
+                    <ThunderboltOutlined /> 随机
+                  </a>
+                </Tooltip>
+              )}
+            />
           </Form.Item>
 
           {/* 类型下拉：随 kind 限制选项 */}
@@ -1791,7 +1818,7 @@ const Configs: React.FC = () => {
                     name="secretKey"
                     rules={[{ required: true, message: '访客必须填写与服务端一致的共享密钥' }]}
                   >
-                    <Input.Password placeholder="与对端服务端代理相同的 secretKey" />
+                    <Input placeholder="与对端服务端代理相同的 secretKey" />
                   </Form.Item>
                   <Row gutter={12}>
                     <Col span={14}>
@@ -1968,7 +1995,7 @@ const Configs: React.FC = () => {
                 return (
                   <>
                     <Form.Item label="共享密钥 secretKey" name="secretKey" rules={[{ required: true, message: '安全代理必须设置 secretKey' }]}>
-                      <Input.Password placeholder="访客端与服务端共享密钥" />
+                      <Input placeholder="访客端与服务端共享密钥" />
                     </Form.Item>
                     <Form.Item label="允许访问的用户 allowUsers (逗号分隔，可选)" name="allowUsers">
                       <Input placeholder="alice,bob 或 *" />
