@@ -612,6 +612,9 @@ const Configs: React.FC = () => {
       await client.put(`/api/v1/configs/${activeConfigId}`, payload);
       message.success('配置保存成功！');
       fetchConfigs();
+      // 保存后用磁盘最新结果重新回填表单（对账：与后端补全/序列化结果保持一致，
+      // 及时暴露异常，避免界面停留在与磁盘不一致的旧值上）
+      if (activeConfigId) loadVisualConfig(activeConfigId);
     } catch (err: any) {
       message.error('保存失败: ' + (err.response?.data?.error?.message || err.message || ''));
     }
@@ -1230,6 +1233,7 @@ const Configs: React.FC = () => {
                             {
                               key: 'basic',
                               label: '基本',
+                              forceRender: true,
                               children: (
                                 <div>
                                   <Row gutter={16}>
@@ -1282,6 +1286,7 @@ const Configs: React.FC = () => {
                             {
                               key: 'auth',
                               label: '认证',
+                              forceRender: true,
                               children: (
                                 <div>
                                   <Form.Item label={<span>认证方式</span>} name="authMethod">
@@ -1351,6 +1356,7 @@ const Configs: React.FC = () => {
                             {
                               key: 'log',
                               label: '日志',
+                              forceRender: true,
                               children: (
                                 <Row gutter={16}>
                                   <Col span={12}>
@@ -1375,6 +1381,7 @@ const Configs: React.FC = () => {
                             {
                               key: 'admin',
                               label: '管理',
+                              forceRender: true,
                               children: (
                                 <div>
                                   <Row gutter={16}>
@@ -1419,6 +1426,7 @@ const Configs: React.FC = () => {
                             {
                               key: 'transport',
                               label: '连接/TLS',
+                              forceRender: true,
                               children: (
                                 <div>
                                   <Row gutter={16}>
