@@ -67,6 +67,29 @@ sh install.sh --help                       # 查看全部参数
 FRPMGR_PORT=9000 FRPMGR_API_TOKEN=xxx ASSUME_YES=1 sh install.sh
 ```
 
+### 全自动更新
+
+升级到最新版，**端口、API 令牌、所有配置和数据都原样保留**，只替换程序本体并重启服务。会先比对版本，已是最新就直接跳过（除非加 `--force`）：
+
+```sh
+# 一行命令直接更新（curl）
+sh -c "$(curl -fsSL https://raw.githubusercontent.com/mia-clark/frp-manager-server/main/scripts/install.sh)" -- --update
+
+# wget 版
+sh -c "$(wget -qO- https://raw.githubusercontent.com/mia-clark/frp-manager-server/main/scripts/install.sh)" -- --update
+```
+
+如果之前已把脚本下载到本地，直接：
+
+```sh
+sh install.sh --update                 # 更新到最新版（已是最新则跳过）
+sh install.sh --update -v v1.2.11      # 更新/回退到指定版本
+sh install.sh --update --force         # 即使已是最新也强制重装
+```
+
+> 想做无人值守的定时自动更新？把上面的一行命令丢进 `crontab` 即可，例如每天凌晨 4 点：
+> `0 4 * * * sh -c "$(curl -fsSL https://raw.githubusercontent.com/mia-clark/frp-manager-server/main/scripts/install.sh)" -- --update >> /var/log/frpmgrd-update.log 2>&1`
+
 ### 卸载
 
 ```sh

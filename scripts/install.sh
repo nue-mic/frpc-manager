@@ -40,6 +40,7 @@ VERSION="${FRPMGR_VERSION:-}"
 PORT="${FRPMGR_PORT:-}"
 TOKEN="${FRPMGR_API_TOKEN:-}"
 ASSUME_YES="${ASSUME_YES:-0}"
+FORCE="0"
 ACTION="install"
 TMP_DIR=""
 
@@ -75,6 +76,8 @@ ${C_BOLD}frpmgrd 一键安装脚本${C_RST}
   -t, --token <令牌>    指定 API 令牌; 省略则交互输入, 留空则生成强随机令牌
   -v, --version <版本>  指定版本 (如 v1.2.10); 省略则安装最新版
   -y, --yes             非交互模式, 端口用默认值、令牌自动随机生成
+  -u, --update          全自动更新到最新版 (保留现有端口/令牌/数据, 仅换二进制并重启)
+  -f, --force           配合 --update: 即使已是最新版也强制重装
       --uninstall       卸载 (停止服务 + 删除二进制/服务文件)
   -h, --help            显示帮助
 
@@ -86,6 +89,9 @@ ${C_BOLD}frpmgrd 一键安装脚本${C_RST}
   sh install.sh -p 9000 -t my-secret -y         # 完全静默安装
   sh install.sh --port random                   # 随机端口
   sh install.sh -v v1.2.10 -p 8888              # 指定版本+端口
+  sh install.sh --update                        # 全自动更新到最新版
+  sh install.sh --update -v v1.2.11             # 更新到指定版本
+  sh install.sh --update --force                # 强制重装当前最新版
   sh install.sh --uninstall                     # 卸载
 
 环境变量等价形式 (适合 CI/自动化):
@@ -100,6 +106,8 @@ parse_args() {
             -t|--token)    TOKEN="${2:-}"; shift 2 ;;
             -v|--version)  VERSION="${2:-}"; shift 2 ;;
             -y|--yes)      ASSUME_YES=1; shift ;;
+            -u|--update)   ACTION="update"; shift ;;
+            -f|--force)    FORCE=1; shift ;;
             --uninstall)   ACTION="uninstall"; shift ;;
             -h|--help)     usage; exit 0 ;;
             *)             die "未知参数: $1 (使用 --help 查看用法)" ;;
@@ -509,6 +517,69 @@ setup_service() {
 }
 
 # ----------------------------------------------------------------------------
+# 读取已安装二进制的版本号 (如 1.2.10), 未安装则为空
+# ----------------------------------------------------------------------------
+get_installed_version() {
+    if [ -x "${INSTALL_DIR}/${BIN_NAME}" ]; then
+        "${INSTALL_DIR}/${BIN_NAME}" version 2>/dev/null | awk '{print $2}'
+    fi
+}
+
+# ----------------------------------------------------------------------------
+# 从现有配置读取监听端口 (用于更新后做健康检查), 取不到则为空
+# ----------------------------------------------------------------------------
+read_env_port() {
+    if [ -f "$ENV_FILE" ]; then
+        _addr="$(grep '^FRPMGR_HTTP_ADDR=' "$ENV_FILE" 2>/dev/null | head -n1 | cut -d= -f2)"
+        echo "${_addr#:}"
+    elif [ "$OS" = "darwin" ]; then
+        _plist="/Library/LaunchDaemons/com.miaclark.${SERVICE_NAME}.plist"
+        if [ -f "$_plist" ] && [ -x /usr/libexec/PlistBuddy ]; then
+            _addr="$(priv /usr/libexec/PlistBuddy -c \
+                "Print :EnvironmentVariables:FRPMGR_HTTP_ADDR" "$_plist" 2>/dev/null)"
+            echo "${_addr#:}"
+        fi
+    fi
+}
+
+# ----------------------------------------------------------------------------
+# 重启已有服务 (不重写服务文件, 仅重启以加载新二进制)
+# ----------------------------------------------------------------------------
+restart_service() {
+    case "$(detect_init_system)" in
+        systemd)
+            if [ -f "/etc/systemd/system/${SERVICE_NAME}.service" ]; then
+                priv systemctl restart "${SERVICE_NAME}"
+                ok "systemd 服务已重启"
+            else
+                warn "未发现 systemd 服务单元, 跳过重启 (可重新安装以注册服务)"
+            fi
+            ;;
+        openrc)
+            if [ -f "/etc/init.d/${SERVICE_NAME}" ]; then
+                priv rc-service "${SERVICE_NAME}" restart
+                ok "OpenRC 服务已重启"
+            else
+                warn "未发现 OpenRC 服务, 跳过重启"
+            fi
+            ;;
+        launchd)
+            _plist="/Library/LaunchDaemons/com.miaclark.${SERVICE_NAME}.plist"
+            if [ -f "$_plist" ]; then
+                priv launchctl unload "$_plist" >/dev/null 2>&1 || true
+                priv launchctl load -w "$_plist"
+                ok "launchd 服务已重启"
+            else
+                warn "未发现 launchd 服务, 跳过重启"
+            fi
+            ;;
+        none)
+            warn "未识别到服务管理器, 请手动重启进程"
+            ;;
+    esac
+}
+
+# ----------------------------------------------------------------------------
 # 健康检查
 # ----------------------------------------------------------------------------
 health_check() {
@@ -569,9 +640,52 @@ print_summary() {
             printf "  日志: %b\n" "${C_BOLD}tail -f /var/log/${SERVICE_NAME}.log${C_RST}"
             ;;
     esac
+    printf "  更新: %b\n" "${C_BOLD}sh install.sh --update${C_RST}"
     printf "  卸载: %b\n" "${C_BOLD}sh install.sh --uninstall${C_RST}"
     printf "%b\n" "────────────────────────────────────────────"
     warn "请妥善保存 API 令牌, 它是访问后台的唯一凭证!"
+}
+
+# ----------------------------------------------------------------------------
+# 全自动更新流程 (保留现有端口/令牌/数据, 仅替换二进制并重启服务)
+# ----------------------------------------------------------------------------
+do_update() {
+    printf "%b\n" "${C_BOLD}=== frpmgrd 全自动更新 ===${C_RST}"
+    detect_platform
+    detect_downloader
+    ensure_root
+
+    if [ ! -x "${INSTALL_DIR}/${BIN_NAME}" ]; then
+        die "未检测到已安装的 ${BIN_NAME} (${INSTALL_DIR}/${BIN_NAME})。请先执行安装, 而非更新。"
+    fi
+
+    _cur="$(get_installed_version)"
+    info "当前已安装版本: ${C_BOLD}${_cur:-未知}${C_RST}"
+
+    resolve_version                 # 解析目标版本 (默认最新, 或 -v 指定)
+    _target="${VERSION#v}"
+
+    if [ -n "$_cur" ] && [ "$_cur" = "$_target" ] && [ "$FORCE" != "1" ]; then
+        ok "已是最新版本 (${_cur}), 无需更新。"
+        info "如需强制重装请加 --force"
+        return 0
+    fi
+
+    info "准备更新: ${C_BOLD}${_cur:-?}${C_RST} -> ${C_BOLD}${_target}${C_RST}"
+    download_and_install            # 下载并覆盖二进制 (不动配置)
+    restart_service                 # 重启以加载新二进制
+
+    # 尽力做一次健康检查 (端口取自现有配置)
+    PORT="$(read_env_port)"
+    if [ -n "$PORT" ]; then
+        health_check
+    else
+        warn "未能读取到现有端口, 跳过健康检查 (服务应已重启)"
+    fi
+
+    printf "\n%b\n" "${C_GRN}${C_BOLD}✓ 更新完成!${C_RST} 版本: ${_target}"
+    [ -n "$PORT" ] && printf "  访问地址 : http://127.0.0.1:%s\n" "$PORT"
+    info "现有端口、API 令牌与数据均未改动。"
 }
 
 # ----------------------------------------------------------------------------
@@ -628,6 +742,7 @@ main() {
     parse_args "$@"
     case "$ACTION" in
         install)   do_install ;;
+        update)    do_update ;;
         uninstall) do_uninstall ;;
     esac
 }
