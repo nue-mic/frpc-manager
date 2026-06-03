@@ -4,14 +4,15 @@ package services
 
 import (
 	"context"
-	"reflect"
 
 	"github.com/fatedier/frp/pkg/util/xlog"
 )
 
 const (
-	InstancePrefixName     = "instance"
-	InstancePrefixPriority = 1
+	instancePrefixName = "instance"
+	// instancePrefixPriority makes the [inst=<id>] tag sort before any prefix
+	// frp itself adds (frp's defaults use Priority=10). Lower number = earlier.
+	instancePrefixPriority = 1
 )
 
 // NewInstanceContext 创建一个新的 context，其中注入了以 instanceID 为标识的
@@ -20,30 +21,9 @@ const (
 func NewInstanceContext(parent context.Context, instanceID string) context.Context {
 	xl := xlog.New()
 	xl.AddPrefix(xlog.LogPrefix{
-		Name:     InstancePrefixName,
+		Name:     instancePrefixName,
 		Value:    "inst=" + instanceID,
-		Priority: InstancePrefixPriority,
+		Priority: instancePrefixPriority,
 	})
 	return xlog.NewContext(parent, xl)
-}
-
-func newCtxPrefixesForTest(ctx context.Context) string {
-	xl := xlog.FromContextSafe(ctx)
-	if xl == nil {
-		return ""
-	}
-	return dumpPrefixesForTest(xl)
-}
-
-func dumpPrefixesForTest(xl *xlog.Logger) string {
-	v := reflect.ValueOf(xl).Elem().FieldByName("prefixes")
-	if !v.IsValid() {
-		return ""
-	}
-	var out string
-	for i := 0; i < v.Len(); i++ {
-		val := v.Index(i).FieldByName("Value").String()
-		out += "[" + val + "]"
-	}
-	return out
 }
