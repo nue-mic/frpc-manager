@@ -1,4 +1,5 @@
 import { useEffect, useState, useRef } from 'react';
+import type { ComponentProps } from 'react';
 import {
   Card, Row, Col, Button, Badge, Space, Typography, Popconfirm,
   Tabs, Form, Input, InputNumber, Switch, Table, Drawer, Modal,
@@ -32,6 +33,18 @@ import { StreamLanguage } from '@codemirror/language';
 import { toml } from '@codemirror/legacy-modes/mode/toml';
 import { oneDark } from '@codemirror/theme-one-dark';
 import { EditorView } from '@codemirror/view';
+
+// 密钥类输入框：默认以「明文」展示，点击右侧眼睛图标后才隐藏（与 antd 默认行为相反）。
+// 通过受控 visibilityToggle 把初始可见性设为 true，并透传 Form.Item 注入的 value/onChange 等 props。
+function RevealablePassword(props: ComponentProps<typeof Input.Password>) {
+  const [visible, setVisible] = useState(true);
+  return (
+    <Input.Password
+      {...props}
+      visibilityToggle={{ visible, onVisibleChange: setVisible }}
+    />
+  );
+}
 
 // 与 VS Code 默认 monospace 字体栈对齐：Windows 优先 Cascadia, macOS 退回 SF Mono / Menlo,
 // Linux 退回 Ubuntu / DejaVu。任何系统都不会再触发浏览器丑陋的 fallback。
@@ -1361,7 +1374,7 @@ const Configs: React.FC = () => {
                                             name="authToken"
                                             rules={[{ required: true, message: '请输入 Token 密钥' }]}
                                           >
-                                            <Input.Password placeholder="FRP Server 对应的连接密钥" />
+                                            <RevealablePassword placeholder="FRP Server 对应的连接密钥" />
                                           </Form.Item>
                                         );
                                       }
