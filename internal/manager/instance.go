@@ -336,6 +336,12 @@ func (i *instance) runLoop(ctx context.Context, svc *services.FrpClientService) 
 		// and proxy stats are cleared.
 		svc.Stop(false)
 		i.mu.Lock()
+		// 必须 cancel ctx：否则 statusPoller 这个 goroutine 永远不退出，
+		// runWG 永远归不了零，后续 stop()/Shutdown 的 runWG.Wait() 会永久阻塞，
+		// 进而状态卡在「停止中」、stop 接口挂起、前端不刷新。
+		if i.cancel != nil {
+			i.cancel()
+		}
 		i.svc = nil
 		i.cancel = nil
 		i.mu.Unlock()
