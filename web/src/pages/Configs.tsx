@@ -450,7 +450,7 @@ const Configs: React.FC = () => {
           user: configData.user || '',
           serverAddr: configData.serverAddr || '',
           serverPort: configData.serverPort || 7000,
-          natHoleSTUNServer: configData.natHoleSTUNServer || '',
+          natHoleStunServer: configData.natHoleStunServer || '',
           // 注意：后端 loginFailExit 是 *bool（nil/true=登录失败立即退出，false=无限重试）
           // 本项目 NewDefaultClientConfigV1 默认为 false，与上游 frp 不同。
           loginFailExit: configData.loginFailExit ?? false,
@@ -618,7 +618,7 @@ const Configs: React.FC = () => {
           user: values.user || undefined,
           serverAddr: values.serverAddr,
           serverPort: values.serverPort,
-          natHoleSTUNServer: values.natHoleSTUNServer || undefined,
+          natHoleStunServer: values.natHoleStunServer || undefined,
           // *bool — 必须显式写入（含 false），否则 spread 里旧值会保留
           loginFailExit: values.loginFailExit,
           auth: {
@@ -1339,7 +1339,7 @@ const Configs: React.FC = () => {
                                       </Form.Item>
                                     </Col>
                                     <Col span={12}>
-                                      <Form.Item label={<span>STUN 服务地址</span>} name="natHoleSTUNServer">
+                                      <Form.Item label={<span>STUN 服务地址</span>} name="natHoleStunServer">
                                         <Input placeholder="用于 Nat 穿透，例如: stun.easyvoip.com:3478" />
                                       </Form.Item>
                                     </Col>
