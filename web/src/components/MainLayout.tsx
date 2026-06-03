@@ -86,7 +86,7 @@ const MainLayout: React.FC = () => {
         type: 'group',
         label: '运行',
         children: [
-          { key: '/configs', icon: <ClusterOutlined />, label: 'FRP 实例' },
+          { key: '/configs', icon: <ClusterOutlined />, label: 'FRPC 实例' },
           { key: '/logs', icon: <FileTextOutlined />, label: '日志流' },
         ],
       },

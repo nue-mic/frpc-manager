@@ -407,7 +407,7 @@ const Dashboard: React.FC = () => {
       <Row gutter={[16, 16]}>
         <Col xs={24}>
           <Card
-            title={<Space><DeploymentUnitOutlined /> FRP 实例</Space>}
+            title={<Space><DeploymentUnitOutlined /> FRPC 实例</Space>}
             styles={{ body: { padding: 18 } }}
             style={{ borderRadius: 10 }}
             extra={<Link to="/configs">管理实例</Link>}
