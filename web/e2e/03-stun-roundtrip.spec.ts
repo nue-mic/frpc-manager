@@ -10,24 +10,8 @@ import {
 
 test.describe('STUN 字段回填回归', () => {
   test('保存 STUN 后刷新页面, 输入框仍应显示填入的值', async ({ page, daemon }) => {
-    // Create config with explicit auth token so the visual config form passes validation
-    const h = { Authorization: `Bearer ${daemon.token}`, 'Content-Type': 'application/json' };
-    const r = await fetch(`${daemon.baseURL}/api/v1/configs`, {
-      method: 'POST',
-      headers: h,
-      body: JSON.stringify({
-        id: 'inst_stun',
-        config: {
-          serverAddr: '127.0.0.1',
-          serverPort: 65530,
-          loginFailExit: false,
-          auth: { method: 'token', token: 'test-auth-token' },
-          log: { level: 'info', maxDays: 1 },
-          frpmgr: { name: 'inst_stun' },
-        },
-      }),
-    });
-    if (!r.ok) throw new Error(`createConfig failed: ${r.status} ${await r.text()}`);
+    // 使用 api helper 创建配置（minimalConfig 已包含 auth.token，避免 form 静默失败）
+    await api(daemon).createConfig('inst_stun');
 
     await page.goto(daemon.baseURL);
     await login.tokenInput(page).fill(daemon.token);
