@@ -439,6 +439,18 @@ func validateID(id string) error {
 	return nil
 }
 
+// LogViewSince 返回指定 id 的"日志逻辑清空时间戳"（Unix 毫秒）。
+// 用于 internal/api/logs.go 过滤合并日志时丢弃旧行。0 表示从未清空。
+func (m *Manager) LogViewSince(id string) int64 {
+	return m.meta.logViewSince(id)
+}
+
+// SetLogViewSince 记录用户"清空日志"操作。internal/api/logs.go 在 Clear
+// 接口里调用本方法，并通过 eventbus 广播让前端立即刷新（如果需要）。
+func (m *Manager) SetLogViewSince(id string, unixMilli int64) error {
+	return m.meta.setLogViewSince(id, unixMilli)
+}
+
 // Sentinel errors. Map these to HTTP statuses in the API layer.
 var (
 	ErrNotFound = errors.New("not found")

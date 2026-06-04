@@ -14,13 +14,19 @@ import (
 // config file; the legacy AutoStart list is kept only so old meta.json
 // files round-trip without losing the key.
 type Meta struct {
-	Version   int      `json:"version"`
-	AutoStart []string `json:"auto_start"`
-	Sort      []string `json:"sort"`
+	Version      int              `json:"version"`
+	AutoStart    []string         `json:"auto_start"`
+	Sort         []string         `json:"sort"`
+	LogViewSince map[string]int64 `json:"log_view_since,omitempty"`
 }
 
 func defaultMeta() *Meta {
-	return &Meta{Version: 1, AutoStart: []string{}, Sort: []string{}}
+	return &Meta{
+		Version:      1,
+		AutoStart:    []string{},
+		Sort:         []string{},
+		LogViewSince: map[string]int64{},
+	}
 }
 
 type metaStore struct {
@@ -44,6 +50,9 @@ func openMetaStore(path string) (*metaStore, error) {
 		if s.data.Sort == nil {
 			s.data.Sort = []string{}
 		}
+		if s.data.LogViewSince == nil {
+			s.data.LogViewSince = map[string]int64{}
+		}
 	case errors.Is(err, os.ErrNotExist):
 		// fresh install; write a stub so operators can see the file
 		if err := s.flushLocked(); err != nil {
@@ -61,6 +70,10 @@ func (s *metaStore) snapshot() Meta {
 	m := *s.data
 	m.AutoStart = append([]string(nil), s.data.AutoStart...)
 	m.Sort = append([]string(nil), s.data.Sort...)
+	m.LogViewSince = make(map[string]int64, len(s.data.LogViewSince))
+	for k, v := range s.data.LogViewSince {
+		m.LogViewSince[k] = v
+	}
 	return m
 }
 
@@ -85,6 +98,9 @@ func (s *metaStore) dropIDs(ids ...string) error {
 	}
 	s.data.AutoStart = filterOut(s.data.AutoStart, idset)
 	s.data.Sort = filterOut(s.data.Sort, idset)
+	for id := range idset {
+		delete(s.data.LogViewSince, id)
+	}
 	return s.flushLocked()
 }
 
@@ -101,6 +117,25 @@ func (s *metaStore) flushLocked() error {
 		return err
 	}
 	return os.Rename(tmp, s.path)
+}
+
+// setLogViewSince 记录"用户在 unixMilli 时刻清空了 id 的日志视图"。
+// GET /logs 和 WS /logs/tail 后续会跳过时间戳早于此值的行，达到逻辑清空效果。
+func (s *metaStore) setLogViewSince(id string, unixMilli int64) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.data.LogViewSince == nil {
+		s.data.LogViewSince = map[string]int64{}
+	}
+	s.data.LogViewSince[id] = unixMilli
+	return s.flushLocked()
+}
+
+// logViewSince 读取指定 id 的清空戳；不存在返回 0（表示"显示所有历史"）。
+func (s *metaStore) logViewSince(id string) int64 {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.data.LogViewSince[id]
 }
 
 func filterOut(src []string, drop map[string]struct{}) []string {
