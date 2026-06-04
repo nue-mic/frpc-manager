@@ -50,6 +50,12 @@ type instance struct {
 	bus    *eventbus.Bus
 }
 
+// instanceCtx 在 parent ctx 上叠加 xlog 前缀 [inst=<id>]。Run 时调用，
+// 让 frp 内部 xl.* 调用自动带上前缀，便于合并日志按实例过滤。
+func (i *instance) instanceCtx(parent context.Context) context.Context {
+	return services.NewInstanceContext(parent, i.id)
+}
+
 func newInstance(id, path string, data *config.ClientConfig, logger *slog.Logger, bus *eventbus.Bus) *instance {
 	return &instance{
 		id:          id,
@@ -323,7 +329,8 @@ func (i *instance) runLoop(ctx context.Context, svc *services.FrpClientService) 
 	}()
 	doneCh := make(chan struct{})
 	go func() {
-		svc.Run()
+		// 注入 [inst=<id>] xlog 前缀，让 frp 内部输出在合并日志中可按实例分流。
+		svc.Run(i.instanceCtx(ctx))
 		close(doneCh)
 	}()
 	select {

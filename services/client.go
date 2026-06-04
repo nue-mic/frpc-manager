@@ -94,7 +94,9 @@ func NewFrpClientService(cfgFile string) (*FrpClientService, error) {
 }
 
 // Run starts frp client service in blocking mode.
-func (s *FrpClientService) Run() {
+// ctx 用于让 daemon 在 stop 时取消 frp 内部循环；同时 ctx 携带的 xlog.Logger
+// 会让 frp 内部 xl.* 调用自动带上 [inst=<id>] 前缀，便于在合并日志中按实例分流。
+func (s *FrpClientService) Run(ctx context.Context) {
 	defer close(s.done)
 	if s.file != "" {
 		log.Infof("start frpc service for config file [%s] with aggregated configuration", s.file)
@@ -103,7 +105,7 @@ func (s *FrpClientService) Run() {
 
 	// There's no guarantee that this function will return after a close call.
 	// So we can't wait for the Run function to finish.
-	if err := s.svr.Run(context.Background()); err != nil {
+	if err := s.svr.Run(ctx); err != nil {
 		log.Errorf("run service error: %v", err)
 	}
 }

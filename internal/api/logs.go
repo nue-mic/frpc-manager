@@ -31,12 +31,19 @@ func NewLogsHandler(m *manager.Manager, logsDir string, log *slog.Logger, origin
 	return &LogsHandler{m: m, logsDir: logsDir, log: log, origins: origins}
 }
 
-func (h *LogsHandler) logPath(id string) string {
-	return filepath.Join(h.logsDir, id+".log")
+// logCombinedPath 返回合并日志的绝对路径；所有 frpc 实例共写这一个文件。
+func (h *LogsHandler) logCombinedPath() string {
+	return filepath.Join(h.logsDir, manager.CombinedLogFileName)
 }
 
-// Query returns the last `lines` lines (default 200), or a slice starting
-// at `offset` for paging through long logs.
+// instancePrefix 用于在合并日志中匹配单个实例的行。
+func instancePrefix(id string) string {
+	return "[inst=" + id + "]"
+}
+
+// Query returns the last `lines` lines (default 200) from the combined log
+// that belong to this instance (matched by [inst=<id>] prefix) and are not
+// older than the instance's LogViewSince watermark.
 func (h *LogsHandler) Query(w http.ResponseWriter, r *http.Request) {
 	id := pathID(r)
 	if !h.m.Exists(id) {
@@ -44,27 +51,41 @@ func (h *LogsHandler) Query(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	lines := atoiDefault(r.URL.Query().Get("lines"), 200)
-	offset, _ := strconv.ParseInt(r.URL.Query().Get("offset"), 10, 64)
-	path := h.logPath(id)
-	got, _, next, err := util.ReadFileLines(path, offset, lines)
+	prefix := instancePrefix(id)
+	since := h.m.LogViewSince(id)
+
+	got, err := util.ReadFileLinesFiltered(h.logCombinedPath(), lines, func(line string) bool {
+		if !strings.Contains(line, prefix) {
+			return false
+		}
+		if since == 0 {
+			return true
+		}
+		ts, ok := parseLogLineTimestamp(line)
+		if !ok {
+			return true // 解析失败的行保留，避免误删
+		}
+		return ts >= since
+	})
 	if err != nil {
-		WriteJSON(w, http.StatusOK, map[string]any{"lines": []string{}, "next_offset": offset})
+		WriteJSON(w, http.StatusOK, map[string]any{"lines": []string{}, "next_offset": int64(0)})
 		return
 	}
 	WriteJSON(w, http.StatusOK, map[string]any{
 		"lines":       trimLines(got),
-		"next_offset": next,
+		"next_offset": int64(0), // 合并日志模式不再支持 offset 翻页；前端只用 lines
 	})
 }
 
-// Files lists rotated log files for this config.
+// Files 列出合并日志 frpc.log 的所有轮转副本。在合并日志模式下，所有
+// instance 共享同一份历史；前端仍可调用此接口知道有哪些归档存在。
 func (h *LogsHandler) Files(w http.ResponseWriter, r *http.Request) {
 	id := pathID(r)
 	if !h.m.Exists(id) {
 		WriteError(w, http.StatusNotFound, CodeConfigNotFound, "config not found", nil)
 		return
 	}
-	files, dates, err := util.FindLogFiles(h.logPath(id))
+	files, dates, err := util.FindLogFiles(h.logCombinedPath())
 	if err != nil {
 		WriteJSON(w, http.StatusOK, map[string]any{"items": []any{}})
 		return
@@ -80,20 +101,26 @@ func (h *LogsHandler) Files(w http.ResponseWriter, r *http.Request) {
 	WriteJSON(w, http.StatusOK, map[string]any{"items": items})
 }
 
-// Clear removes the current and rotated log files for this config.
+// Clear sets a "view since" timestamp for this instance instead of deleting
+// the combined log file. Subsequent GET /logs and WS /logs/tail will skip
+// lines older than this timestamp. The physical frpc.log is preserved so
+// operators can still grep historical data on disk.
 func (h *LogsHandler) Clear(w http.ResponseWriter, r *http.Request) {
 	id := pathID(r)
 	if !h.m.Exists(id) {
 		WriteError(w, http.StatusNotFound, CodeConfigNotFound, "config not found", nil)
 		return
 	}
-	if files, _, err := util.FindLogFiles(h.logPath(id)); err == nil {
-		util.DeleteFiles(files)
+	if err := h.m.SetLogViewSince(id, time.Now().UnixMilli()); err != nil {
+		WriteError(w, http.StatusInternalServerError, "internal_error", err.Error(), nil)
+		return
 	}
 	w.WriteHeader(http.StatusNoContent)
 }
 
-// Tail upgrades to WebSocket and streams new lines as they arrive.
+// Tail upgrades to WebSocket and streams new lines belonging to the given
+// instance as they arrive. 物理上订阅合并日志 frpc.log，按 [inst=<id>] 前缀
+// 过滤后再推送。当 LogViewSince[id] > 0 时，时间戳早于该值的行也被丢弃。
 func (h *LogsHandler) Tail(w http.ResponseWriter, r *http.Request) {
 	id := pathID(r)
 	if !h.m.Exists(id) {
@@ -110,12 +137,17 @@ func (h *LogsHandler) Tail(w http.ResponseWriter, r *http.Request) {
 	}
 	defer conn.Close(websocket.StatusInternalError, "internal error")
 
-	ctx, cancel := context.WithCancel(r.Context())
-	defer cancel()
+	// CloseRead 在后台持续读取控制帧（ping/pong/close），返回一个在连接关闭时
+	// 自动取消的 ctx。这样即便底层 TCP 已被 hijack（HTTP server 不再管理），
+	// 客户端主动关闭连接也能让下方 select 及时退出。
+	ctx := conn.CloseRead(r.Context())
 
-	t := logtail.New(h.logPath(id))
+	t := logtail.New(h.logCombinedPath())
 	ch := t.Subscribe()
 	defer t.Stop()
+
+	prefix := instancePrefix(id)
+	since := h.m.LogViewSince(id)
 
 	ping := time.NewTicker(30 * time.Second)
 	defer ping.Stop()
@@ -127,6 +159,14 @@ func (h *LogsHandler) Tail(w http.ResponseWriter, r *http.Request) {
 		case line, ok := <-ch:
 			if !ok {
 				return
+			}
+			if !strings.Contains(line, prefix) {
+				continue
+			}
+			if since > 0 {
+				if ts, ok := parseLogLineTimestamp(line); ok && ts < since {
+					continue
+				}
 			}
 			payload, _ := json.Marshal(map[string]string{"line": line})
 			wctx, c := context.WithTimeout(ctx, 5*time.Second)
@@ -163,4 +203,19 @@ func trimLines(in []string) []string {
 		out = append(out, strings.TrimRight(l, "\r\n"))
 	}
 	return out
+}
+
+// parseLogLineTimestamp 从 frp 日志行首解析时间戳（毫秒精度）。
+// frp 行格式："2026-06-03 15:18:20.546 [D] ..."（util.log 包默认 layout）。
+// 解析失败时 ok=false，调用方应当默认保留这一行。
+func parseLogLineTimestamp(line string) (unixMilli int64, ok bool) {
+	const layout = "2006-01-02 15:04:05.000"
+	if len(line) < len(layout) {
+		return 0, false
+	}
+	t, err := time.ParseInLocation(layout, line[:len(layout)], time.Local)
+	if err != nil {
+		return 0, false
+	}
+	return t.UnixMilli(), true
 }

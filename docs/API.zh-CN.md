@@ -600,37 +600,69 @@ STUN 失败：`502 / upstream_failure`。
 
 ## 8. 日志
 
+### 8.0 合并日志模型（v1.2.22+）
+
+> ⚠️ 自 v1.2.22 起，所有 frpc 实例的日志统一写入 `{FRPMGR_DATA_DIR}/logs/frpc.log` 合并日志文件，
+> 由 daemon 在 ctx 注入 xlog 前缀 `[inst=<id>]` 区分。本节接口在合并日志上做按
+> 实例前缀的过滤，前端使用方式不变。
+
+| 接口 | 行为 |
+|---|---|
+| `GET .../logs?lines=N` | 读合并日志，按 `[inst=<id>]` 过滤后返回最后 N 行 |
+| `GET .../logs/files` | 列出合并日志的轮转副本路径与日期 |
+| `DELETE .../logs` | **不再物理删除文件**；改为更新该实例的 `log_view_since` 时间戳，后续 GET / WS 跳过戳之前的行 |
+| `WS .../logs/tail` | 订阅合并日志，按 `[inst=<id>]` 过滤后实时推送 |
+
+**已知限制 — "游离日志"**：上游 frp v0.69.1 内部有 12 处裸 `log.*` 调用（不经
+xlog ctx），主要分布在 `client/service.go`（vnet/admin）与 `client/config_manager.go`
+（reload/store）。这些行不带 `[inst=<id>]` 前缀，**不会显示在任何单实例视图中**。
+默认情况下用户感知不到（vnet/admin/store 默认都不启用），仅在 reload 时会有
+一条 `success reload conf` 落空。运维需要看全部 frp 内部日志时，可直接在主机上
+`tail -f {FRPMGR_DATA_DIR}/logs/frpc.log`。
+
+**LogViewSince 持久化位置**：`{FRPMGR_DATA_DIR}/meta.json` 中的 `log_view_since`
+字段（`map[string]int64`，键为 instance id，值为 Unix 毫秒）。删除 instance 时
+该键自动清理。
+
 ### 8.1 GET `/api/v1/configs/{id}/logs?lines=200&offset=0` — 离线查询
+
+请求侧不变；服务端从合并日志按 `[inst=<id>]` 过滤后返回。`next_offset` 始终为 0（合并日志模式下不支持 offset 翻页，前端只用 `lines`）。
 
 | Query | 默认 | 说明 |
 |---|---|---|
 | `lines` | 200 | 返回最多多少行 |
-| `offset` | 0 | 字节偏移，用于分页 |
+| `offset` | 0 | 兼容字段，**合并日志模式下被忽略**；保留仅为前端旧版本兼容，不再用于分页 |
 
 返回：
 
 ```json
-{ "lines": ["[I] 2026-...", "..."], "next_offset": 1234 }
+{ "lines": ["[I] 2026-...", "..."], "next_offset": 0 }
 ```
 
-文件不存在时返回 `200` + 空数组（不报错）。
+`next_offset` 始终为 `0`（合并日志模式下不支持 offset 翻页）。文件不存在时返回 `200` + 空数组（不报错）。
 
 ### 8.2 GET `/api/v1/configs/{id}/logs/files` — 列出滚转日志
+
+列出的是 **合并日志**（`frpc.log`）的轮转副本，**不是按实例分离的**。所有 instance 在同一份历史里。
 
 ```json
 {
   "items": [
-    { "path": "/data/logs/diag1.log" },
-    { "path": "/data/logs/diag1.log.2026-05-20", "rotated_at": "2026-05-20T00:00:00Z" }
+    { "path": "/data/logs/frpc.log" },
+    { "path": "/data/logs/frpc.log.2026-05-20", "rotated_at": "2026-05-20T00:00:00Z" }
   ]
 }
 ```
 
-### 8.3 DELETE `/api/v1/configs/{id}/logs` — 清空（含滚转）
+### 8.3 DELETE `/api/v1/configs/{id}/logs` — 重置视图水位
+
+**语义变更（v1.2.22）：** 不再物理删除日志文件。更新该 instance 的 `log_view_since` 时间戳到当前时刻；后续 `GET /logs` 与 `WS /logs/tail` 仅返回时间戳 ≥ 此值的行。物理文件 `frpc.log` 保留，运维仍可直接读盘。
 
 返回 `204`。
 
 ### 8.4 WebSocket `/api/v1/configs/{id}/logs/tail` — 实时流
+
+实时推送的行经过 `[inst=<id>]` 前缀过滤；`log_view_since` 也参与过滤，即仅推送时间戳 ≥ 水位的行。
 
 - 协议：`Upgrade: websocket`
 - 鉴权：浏览器无法自定义 ws 头，故支持 `?token=<bearer>` 查询参数（前端 `Logs.tsx` 已采用此方式）

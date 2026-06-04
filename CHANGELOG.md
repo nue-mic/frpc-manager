@@ -6,6 +6,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### 修复
+- **多实例日志互串**：当多个 frpc 实例同进程运行时，由于 frp v0.69.1 使用全局 logger 变量，后启动的实例会"抢走"所有日志输出。现已通过 daemon 注入 xlog `[inst=<id>]` 前缀 + 合并日志文件 `frpc.log` + API 层按前缀过滤的方式彻底解决。前端无改动。
+- 修复 WS `/api/v1/configs/{id}/logs/tail` 中 `coder/websocket` hijack 后 `r.Context()` 不取消导致的 goroutine 泄漏（改用 `conn.CloseRead(r.Context())` 替代）。
+
+### 变更
+- 所有 frpc 实例的日志统一写入 `{FRPMGR_DATA_DIR}/logs/frpc.log`（之前是 per-id 的 `<id>.log`）。
+- `DELETE /api/v1/configs/{id}/logs` 语义变更：不再物理删除文件，改为更新 `meta.json` 中的 `log_view_since` 时间戳。物理日志保留供运维 grep。
+- `meta.json` 新增 `log_view_since` 字段（`map[string]int64`，键为 instance id，值为 Unix 毫秒）。删除 instance 时自动清理对应键。
+- `services.FrpClientService.Run()` 改签名为 `Run(ctx context.Context)`，接收外部 ctx 以支持取消传播和 xlog 注入。仅 daemon 内部调用。
+
+### 内部
+- 新增 `services.NewInstanceContext(parent, id)` helper，将 xlog 实例前缀注入 ctx。
+- 新增 `pkg/util.ReadFileLinesFiltered(path, n, filter)` —— 按 predicate 过滤读取最后 N 行。
+- 新增 `manager.CombinedLogFileName` 常量与 `Manager.CombinedLogPath()` 方法。
+- 新增 `Manager.LogViewSince(id)` / `Manager.SetLogViewSince(id, unixMilli)` 方法，持久化到 `meta.json`。
+
 ## [1.11.0] - 2023-02-10
 
 ### What's Changed
