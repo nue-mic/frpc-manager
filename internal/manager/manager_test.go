@@ -3,7 +3,6 @@ package manager
 import (
 	"os"
 	"path/filepath"
-	"strings"
 	"testing"
 
 	"github.com/mia-clark/frp-manager-server/pkg/config"
@@ -43,12 +42,13 @@ serverPort=7000
 		t.Fatalf("writeConfig: %v", err)
 	}
 
-	got, err := os.ReadFile(cfgPath)
+	// Parse the written TOML back and verify LogFile points exactly at the combined path.
+	parsed, err := config.UnmarshalClientConf(cfgPath)
 	if err != nil {
-		t.Fatalf("readback: %v", err)
+		t.Fatalf("re-parse: %v", err)
 	}
 	want := filepath.ToSlash(filepath.Join(logsDir, "frpc.log"))
-	if !strings.Contains(string(got), want) {
-		t.Fatalf("expected LogFile to contain %q, got toml:\n%s", want, got)
+	if parsed.LogFile != want {
+		t.Fatalf("expected LogFile=%q, got %q", want, parsed.LogFile)
 	}
 }
