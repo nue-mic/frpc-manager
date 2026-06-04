@@ -979,6 +979,7 @@ const Configs: React.FC = () => {
                           <Card
                             hoverable
                             size="small"
+                            data-testid={`config-card-${item.id}`}
                             style={{
                               marginBottom: 8,
                               cursor: 'pointer',
@@ -1025,6 +1026,7 @@ const Configs: React.FC = () => {
                     <Dropdown menu={buildContextMenu(item)} trigger={['contextMenu']}>
                     <Card
                       hoverable
+                      data-testid={`config-card-${item.id}`}
                       style={{
                         marginBottom: 12,
                         cursor: 'pointer',
