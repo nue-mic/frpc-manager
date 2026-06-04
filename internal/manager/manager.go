@@ -27,6 +27,10 @@ type Options struct {
 	Bus         *eventbus.Bus
 }
 
+// CombinedLogFileName 是所有 frpc 实例共用的合并日志文件名。
+// 完整路径由 Options.LogsDir 拼成。
+const CombinedLogFileName = "frpc.log"
+
 // Manager is the central registry of frpc instances. It owns the
 // /data/profiles directory and gates every read/write to config files.
 type Manager struct {
@@ -385,6 +389,11 @@ func (m *Manager) Reorder(order []string) error {
 // ProfilesDir reports the directory the manager owns.
 func (m *Manager) ProfilesDir() string { return m.opts.ProfilesDir }
 
+// CombinedLogPath 返回合并日志的绝对路径。给 internal/api/logs.go 用。
+func (m *Manager) CombinedLogPath() string {
+	return filepath.Join(m.opts.LogsDir, CombinedLogFileName)
+}
+
 func (m *Manager) pathFor(id string) string {
 	return filepath.Join(m.opts.ProfilesDir, id+".toml")
 }
@@ -397,7 +406,9 @@ func (m *Manager) writeConfig(path string, data *config.ClientConfig) error {
 	// frp expects log/store paths to be absolute or resolvable; we
 	// rewrite them so they sit alongside profiles in /data.
 	id := idFromPath(path)
-	data.LogFile = filepath.ToSlash(filepath.Join(m.opts.LogsDir, id+".log"))
+	// 合并日志：所有 frpc 实例共写 frpc.log，依赖 daemon 注入的 xlog 前缀
+	// [inst=<id>] 在读取侧按实例过滤。详见 docs/superpowers/plans/2026-06-03-frpc-log-isolation-via-xlog-prefix.md
+	data.LogFile = filepath.ToSlash(filepath.Join(m.opts.LogsDir, CombinedLogFileName))
 	if data.Store.IsEnabled() {
 		data.Store.Path = filepath.ToSlash(filepath.Join(m.opts.StoresDir, id+".json"))
 	}
