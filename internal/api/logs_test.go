@@ -6,11 +6,14 @@ import (
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
+	"github.com/coder/websocket"
 	"github.com/go-chi/chi/v5"
 
 	"github.com/mia-clark/frp-manager-server/internal/manager"
@@ -25,7 +28,7 @@ func TestLogsQuery_FiltersByInstancePrefix(t *testing.T) {
 	if err := os.MkdirAll(logsDir, 0o755); err != nil {
 		t.Fatalf("mkdir: %v", err)
 	}
-	combined := filepath.Join(logsDir, "frpc.log")
+	combined := filepath.Join(logsDir, manager.CombinedLogFileName)
 	body := strings.Join([]string{
 		"2026-06-03 15:17:41.437 [I] [inst=A] try to connect",
 		"2026-06-03 15:17:50.544 [D] [inst=B] heartbeat",
@@ -109,4 +112,91 @@ func withPathID(r *http.Request, id string) *http.Request {
 	rctx := chi.NewRouteContext()
 	rctx.URLParams.Add("id", id)
 	return r.WithContext(context.WithValue(r.Context(), chi.RouteCtxKey, rctx))
+}
+
+// TestLogsTail_FiltersByInstancePrefix: WS /logs/tail 实时推送，
+// 应只推送当前实例的行。
+func TestLogsTail_FiltersByInstancePrefix(t *testing.T) {
+	tmp := t.TempDir()
+	logsDir := filepath.Join(tmp, "logs")
+	if err := os.MkdirAll(logsDir, 0o755); err != nil {
+		t.Fatalf("mkdir: %v", err)
+	}
+	combined := filepath.Join(logsDir, manager.CombinedLogFileName)
+	if err := os.WriteFile(combined, []byte(""), 0o644); err != nil {
+		t.Fatalf("seed empty: %v", err)
+	}
+
+	m := newTestManager(t, tmp)
+	mustCreateInstance(t, m, "A")
+	mustCreateInstance(t, m, "B")
+
+	h := NewLogsHandler(m, logsDir, testLogger(), []string{"*"})
+
+	// httptest.Server + ws Dial
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		r = withPathID(r, "A")
+		h.Tail(w, r)
+	}))
+	defer srv.Close()
+
+	wsURL, _ := url.Parse(srv.URL)
+	wsURL.Scheme = "ws"
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	conn, _, err := websocket.Dial(ctx, wsURL.String(), nil)
+	if err != nil {
+		t.Fatalf("ws dial: %v", err)
+	}
+
+	// 给 logtail goroutine 一点时间订阅成功（Windows fsnotify 启动较慢）
+	time.Sleep(500 * time.Millisecond)
+
+	f, err := os.OpenFile(combined, os.O_APPEND|os.O_WRONLY, 0o644)
+	if err != nil {
+		t.Fatalf("open append: %v", err)
+	}
+	for _, line := range []string{
+		"2026-06-03 16:00:00.000 [D] [inst=B] heartbeat-B\n",
+		"2026-06-03 16:00:01.000 [I] [inst=A] login success\n",
+		"2026-06-03 16:00:02.000 [D] [inst=A] heartbeat-A\n",
+	} {
+		_, _ = f.WriteString(line)
+	}
+	_ = f.Close()
+
+	// 期望读到 A 的 2 条
+	got := []string{}
+	readDeadline := time.After(8 * time.Second)
+	for len(got) < 2 {
+		select {
+		case <-readDeadline:
+			t.Fatalf("timeout, got %v", got)
+		default:
+		}
+		readCtx, c := context.WithTimeout(ctx, 3*time.Second)
+		_, data, err := conn.Read(readCtx)
+		c()
+		if err != nil {
+			t.Fatalf("ws read: %v", err)
+		}
+		var frame struct {
+			Line string `json:"line"`
+		}
+		if err := json.Unmarshal(data, &frame); err != nil {
+			t.Fatalf("decode frame: %v", err)
+		}
+		got = append(got, frame.Line)
+	}
+	for _, l := range got {
+		if !strings.Contains(l, "[inst=A]") {
+			t.Fatalf("unexpected line in tail: %s", l)
+		}
+	}
+
+	// 显式关闭连接：触发服务端 CloseRead ctx 取消 → Tail handler 退出 →
+	// logtail.Stop() → run() goroutine 退出 → 文件句柄释放。
+	// 等待 500ms 让 goroutine 链完成，避免 Windows TempDir cleanup 时文件仍被持有。
+	conn.Close(websocket.StatusNormalClosure, "")
+	time.Sleep(500 * time.Millisecond)
 }

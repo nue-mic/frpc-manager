@@ -101,10 +101,10 @@ func (h *LogsHandler) Files(w http.ResponseWriter, r *http.Request) {
 	WriteJSON(w, http.StatusOK, map[string]any{"items": items})
 }
 
-// Clear removes the log view watermark for this instance so future queries
-// start from the current time.
-// TODO(Task 9): 实现按实例 LogViewSince 水印清空，不再物理删除合并日志文件。
-// 当前临时实现：指向合并日志路径（语义上错误，Task 9 会重写）。
+// Clear is TEMPORARILY broken: 当前实现物理删除合并日志文件 frpc.log，
+// 影响所有 frpc 实例的日志历史（不仅是 path 中的 id）。Task 9 将替换为
+// h.m.SetLogViewSince(id, time.Now().UnixMilli()) 水印方案，不再触碰物理文件。
+// 在 Task 9 合并前，本接口应被前端避免调用。
 func (h *LogsHandler) Clear(w http.ResponseWriter, r *http.Request) {
 	id := pathID(r)
 	if !h.m.Exists(id) {
@@ -118,9 +118,9 @@ func (h *LogsHandler) Clear(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
-// Tail upgrades to WebSocket and streams new lines as they arrive.
-// TODO(Task 8): 在合并日志模式下，对推送的每行做 [inst=<id>] 前缀过滤，
-// 当前临时实现：tail 整个合并日志（会收到所有实例的行）。
+// Tail upgrades to WebSocket and streams new lines belonging to the given
+// instance as they arrive. 物理上订阅合并日志 frpc.log，按 [inst=<id>] 前缀
+// 过滤后再推送。当 LogViewSince[id] > 0 时，时间戳早于该值的行也被丢弃。
 func (h *LogsHandler) Tail(w http.ResponseWriter, r *http.Request) {
 	id := pathID(r)
 	if !h.m.Exists(id) {
@@ -137,12 +137,17 @@ func (h *LogsHandler) Tail(w http.ResponseWriter, r *http.Request) {
 	}
 	defer conn.Close(websocket.StatusInternalError, "internal error")
 
-	ctx, cancel := context.WithCancel(r.Context())
-	defer cancel()
+	// CloseRead 在后台持续读取控制帧（ping/pong/close），返回一个在连接关闭时
+	// 自动取消的 ctx。这样即便底层 TCP 已被 hijack（HTTP server 不再管理），
+	// 客户端主动关闭连接也能让下方 select 及时退出。
+	ctx := conn.CloseRead(r.Context())
 
 	t := logtail.New(h.logCombinedPath())
 	ch := t.Subscribe()
 	defer t.Stop()
+
+	prefix := instancePrefix(id)
+	since := h.m.LogViewSince(id)
 
 	ping := time.NewTicker(30 * time.Second)
 	defer ping.Stop()
@@ -154,6 +159,14 @@ func (h *LogsHandler) Tail(w http.ResponseWriter, r *http.Request) {
 		case line, ok := <-ch:
 			if !ok {
 				return
+			}
+			if !strings.Contains(line, prefix) {
+				continue
+			}
+			if since > 0 {
+				if ts, ok := parseLogLineTimestamp(line); ok && ts < since {
+					continue
+				}
 			}
 			payload, _ := json.Marshal(map[string]string{"line": line})
 			wctx, c := context.WithTimeout(ctx, 5*time.Second)
