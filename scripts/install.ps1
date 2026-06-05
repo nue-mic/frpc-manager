@@ -401,18 +401,18 @@ function Register-FrpmgrService {
 }
 
 # ----------------------------------------------------------------------------
-# 生成统一管理命令 fms (fms.cmd + fms.ps1), 并把安装目录加入系统 PATH
-#   之后在任意终端 (cmd / PowerShell) 都可直接执行 fms <命令>
+# 生成统一管理命令 fmc (fmc.cmd + fmc.ps1), 并把安装目录加入系统 PATH
+#   之后在任意终端 (cmd / PowerShell) 都可直接执行 fmc <命令>
 # ----------------------------------------------------------------------------
 function Install-Cli {
-    Write-Info '安装管理命令: fms'
-    $cliPs1 = Join-Path $InstallDir 'fms.ps1'
-    $cliCmd = Join-Path $InstallDir 'fms.cmd'
+    Write-Info '安装管理命令: fmc'
+    $cliPs1 = Join-Path $InstallDir 'fmc.ps1'
+    $cliCmd = Join-Path $InstallDir 'fmc.cmd'
     New-Item -ItemType Directory -Force -Path $InstallDir | Out-Null
 
     # 头部: 注入安装期常量 (可展开 here-string; 用反引号转义运行期 $ 以保留字面量)
     $head = @"
-# fms.ps1 — frpmgrd 管理命令 (由 install.ps1 自动生成, 请勿手动编辑)
+# fmc.ps1 — frpmgrd 管理命令 (由 install.ps1 自动生成, 请勿手动编辑)
 `$ServiceName = '$ServiceName'
 `$InstallDir  = '$InstallDir'
 `$BinName     = '$BinName'
@@ -468,16 +468,16 @@ function Write-CliPanel {
     Write-Host '────────────────────────────────────────────'
     Write-Host '  管理命令 (已加入 PATH, 新开终端任意目录可用):'
     $rows = @(
-        @('fms start',     '启动服务'),
-        @('fms stop',      '停止服务'),
-        @('fms restart',   '重启服务'),
-        @('fms status',    '查看状态'),
-        @('fms logs -f',   '实时日志'),
-        @('fms info',      '查看完整信息'),
-        @('fms config',    '查看/编辑配置'),
-        @('fms update',    '更新到最新版'),
-        @('fms uninstall', '卸载'),
-        @('fms help',      '查看全部命令')
+        @('fmc start',     '启动服务'),
+        @('fmc stop',      '停止服务'),
+        @('fmc restart',   '重启服务'),
+        @('fmc status',    '查看状态'),
+        @('fmc logs -f',   '实时日志'),
+        @('fmc info',      '查看完整信息'),
+        @('fmc config',    '查看/编辑配置'),
+        @('fmc update',    '更新到最新版'),
+        @('fmc uninstall', '卸载'),
+        @('fmc help',      '查看全部命令')
     )
     foreach ($r in $rows) { Write-Host ('    {0,-13} # {1}' -f $r[0], $r[1]) }
     Write-Host '────────────────────────────────────────────'
@@ -507,7 +507,7 @@ function Do-Info {
     Write-Host ("  监听地址 : :{0}" -f $port)
     Write-Host ("  日志级别 : {0}" -f $loglv)
     Write-Host ("  程序路径 : {0}" -f $BinPath)
-    Write-Host ("  管理命令 : {0}" -f (Join-Path $InstallDir 'fms.cmd'))
+    Write-Host ("  管理命令 : {0}" -f (Join-Path $InstallDir 'fmc.cmd'))
     Write-Host ("  服务管理 : {0}" -f $NssmPath)
     Write-Host ("  数据目录 : {0}" -f $ddir)
     Write-Host ("  日志文件 : {0}" -f $LogFile)
@@ -530,9 +530,9 @@ function Invoke-Installer([object[]]$extra) {
 }
 function Show-Usage {
     Write-Host @"
-fms — frpmgrd 管理命令
+fmc — frpmgrd 管理命令
 
-用法: fms <命令> [参数]
+用法: fmc <命令> [参数]
 
 服务管理:
   start            启动服务
@@ -559,7 +559,7 @@ fms — frpmgrd 管理命令
 
 function Write-CliTip {
     Write-Host '────────────────────────────────────────────'
-    Write-Host '💡 输入 fms 查看全部命令'
+    Write-Host '💡 输入 fmc 查看全部命令'
     Write-Host '────────────────────────────────────────────'
 }
 
@@ -578,7 +578,7 @@ switch ($Cmd.ToLower()) {
     'install'   { Invoke-Installer $Rest }
     'uninstall' {
         Invoke-Installer @('-Uninstall')
-        Remove-Item -Force (Join-Path $InstallDir 'fms.cmd'), (Join-Path $InstallDir 'fms.ps1') -ErrorAction SilentlyContinue
+        Remove-Item -Force (Join-Path $InstallDir 'fmc.cmd'), (Join-Path $InstallDir 'fmc.ps1') -ErrorAction SilentlyContinue
         exit 0
     }
     default {
@@ -591,21 +591,27 @@ switch ($Cmd.ToLower()) {
 Write-CliTip
 '@
 
-    # fms.ps1 含中文, 必须带 UTF-8 BOM, 否则 PowerShell 5.1 按 ANSI 解析会乱码/语法错
+    # fmc.ps1 含中文, 必须带 UTF-8 BOM, 否则 PowerShell 5.1 按 ANSI 解析会乱码/语法错
     $utf8Bom = New-Object System.Text.UTF8Encoding($true)
     [System.IO.File]::WriteAllText($cliPs1, ($head + "`r`n" + $body), $utf8Bom)
-    # fms.cmd 为纯 ASCII, 且 cmd.exe 不能带 BOM, 故用无 BOM 写入
-    $cmdShim = "@echo off`r`npowershell -NoProfile -ExecutionPolicy Bypass -File `"%~dp0fms.ps1`" %*`r`n"
+    # fmc.cmd 为纯 ASCII, 且 cmd.exe 不能带 BOM, 故用无 BOM 写入
+    $cmdShim = "@echo off`r`npowershell -NoProfile -ExecutionPolicy Bypass -File `"%~dp0fmc.ps1`" %*`r`n"
     [System.IO.File]::WriteAllText($cliCmd, $cmdShim, (New-Object System.Text.UTF8Encoding($false)))
 
-    # 确保安装目录在系统 PATH 中 (新开终端即可直接使用 fms)
+    # 确保安装目录在系统 PATH 中 (新开终端即可直接使用 fmc)
     $mp = [Environment]::GetEnvironmentVariable('Path', 'Machine')
     if ($mp -notlike "*$InstallDir*") {
         [Environment]::SetEnvironmentVariable('Path', ($mp.TrimEnd(';') + ';' + $InstallDir), 'Machine')
         Write-Info "已将 $InstallDir 加入系统 PATH (新开终端生效)"
     }
     if (($env:Path -split ';') -notcontains $InstallDir) { $env:Path = $env:Path.TrimEnd(';') + ';' + $InstallDir }
-    Write-Ok '管理命令已安装, 现在可使用: fms <命令>'
+    # 迁移: 管理命令已由 fms 更名为 fmc, 清除旧版遗留的 fms.cmd / fms.ps1 (升级 / 重装时自动完成)
+    $oldFms = @((Join-Path $InstallDir 'fms.cmd'), (Join-Path $InstallDir 'fms.ps1'))
+    if ($oldFms | Where-Object { Test-Path $_ }) {
+        Remove-Item -Force $oldFms -ErrorAction SilentlyContinue
+        Write-Info '已移除旧版管理命令 fms (现已更名为 fmc)'
+    }
+    Write-Ok '管理命令已安装, 现在可使用: fmc <命令>'
 }
 
 # 从已注册服务读取监听端口 (用于更新后健康检查)
@@ -672,22 +678,22 @@ function Invoke-Install {
     Write-Summary
 }
 
-# 打印 fms 管理命令清单 (安装 / 更新结尾共用, 方便用户直接照着敲)
+# 打印 fmc 管理命令清单 (安装 / 更新结尾共用, 方便用户直接照着敲)
 function Write-CliHint {
     Write-Host '────────────────────────────────────────────'
     Write-Host '  管理命令 (已加入 PATH, 新开终端任意目录可用):'
-    # {0,-13} 定宽左对齐命令列 (最长 fms uninstall = 13)，# 自然对齐
+    # {0,-13} 定宽左对齐命令列 (最长 fmc uninstall = 13)，# 自然对齐
     $rows = @(
-        @('fms start',     '启动服务'),
-        @('fms stop',      '停止服务'),
-        @('fms restart',   '重启服务'),
-        @('fms status',    '查看状态'),
-        @('fms logs -f',   '实时日志'),
-        @('fms info',      '查看完整信息'),
-        @('fms config',    '查看/编辑配置'),
-        @('fms update',    '更新到最新版'),
-        @('fms uninstall', '卸载'),
-        @('fms help',      '查看全部命令')
+        @('fmc start',     '启动服务'),
+        @('fmc stop',      '停止服务'),
+        @('fmc restart',   '重启服务'),
+        @('fmc status',    '查看状态'),
+        @('fmc logs -f',   '实时日志'),
+        @('fmc info',      '查看完整信息'),
+        @('fmc config',    '查看/编辑配置'),
+        @('fmc update',    '更新到最新版'),
+        @('fmc uninstall', '卸载'),
+        @('fmc help',      '查看全部命令')
     )
     foreach ($r in $rows) { Write-Host ('    {0,-13} # {1}' -f $r[0], $r[1]) }
     Write-Host '────────────────────────────────────────────'
@@ -735,7 +741,7 @@ function Invoke-Update {
     # 先停服务再覆盖, 避免 exe 被占用
     if (Test-Service) { & $script:NssmPath stop $ServiceName 2>$null | Out-Null; Start-Sleep -Milliseconds 500 }
     Install-Binary
-    Install-Cli                 # 顺带刷新管理命令 fms 到最新
+    Install-Cli                 # 顺带刷新管理命令 fmc 到最新
     Restart-FrpmgrService
 
     $script:Port = Get-ServicePort
@@ -778,8 +784,8 @@ function Invoke-Uninstall {
         Write-Ok "已删除二进制 $($script:BinPath)"
     }
 
-    # 删除管理命令 fms (fms.cmd + fms.ps1)
-    Remove-Item -Force (Join-Path $InstallDir 'fms.cmd'), (Join-Path $InstallDir 'fms.ps1') -ErrorAction SilentlyContinue
+    # 删除管理命令 fmc (fmc.cmd + fmc.ps1)
+    Remove-Item -Force (Join-Path $InstallDir 'fmc.cmd'), (Join-Path $InstallDir 'fmc.ps1') -ErrorAction SilentlyContinue
 
     $r = Read-Prompt "是否同时删除配置与数据目录 ($(Split-Path $DataDir -Parent))? [y/N]" 'N'
     if ($r -match '^(y|yes)$') {

@@ -19,7 +19,7 @@
 |---|---|
 | 后端 | Go 1.25、标准库 `net/http`、`log/slog`、`coder/websocket`、内嵌 `fatedier/frp` |
 | 前端 | React 19 + TypeScript + Vite 8 + Ant Design 6 + axios + CodeMirror |
-| 交付 | 单二进制（embed dist）、Docker 多阶段、`scripts/install.sh` / `install.ps1`、统一管理命令 `fms` |
+| 交付 | 单二进制（embed dist）、Docker 多阶段、`scripts/install.sh` / `install.ps1`、统一管理命令 `fmc` |
 
 ## 3. 架构与目录
 
@@ -38,7 +38,7 @@ web/src/
   api/{client.ts,types.ts,schema.d.ts}  # axios 客户端 + 手写类型 + 由 openapi 生成的 schema
   pages/                 # 每个路由一个页面（Configs 是最复杂的核心页）
   components/ events/ theme/
-scripts/                 # install.sh / install.ps1（含生成的 fms 管理命令）
+scripts/                 # install.sh / install.ps1（含生成的 fmc 管理命令）
 docs/API.zh-CN.md        # 完整 API 字段表（前后端对接的权威参考）
 ```
 
@@ -100,7 +100,7 @@ make docker       # 多阶段镜像（自带 node+go，无需本地依赖）
 - 版本号在**构建期由 `-ldflags` 注入** [pkg/version](pkg/version)，不要在源码里硬编码。
 - 内嵌的 frp 版本也记录在 `pkg/version`（`frpmgrd version` 会一并打印）。
 - 发布走 CI（`.github/workflows/release.yml`），release 提交形如 `chore(release): vX.Y.Z [skip ci]`。
-- 运维统一用安装脚本生成的 **`fms` 命令**：`fms start/stop/restart/status/logs -f/url/update/uninstall`（自动适配 systemd/OpenRC/launchd/Windows 服务）。改动 `install.sh`/`install.ps1` 只对新装或下次 `fms update` 生效。
+- 运维统一用安装脚本生成的 **`fmc` 命令**：`fmc start/stop/restart/status/logs -f/url/update/uninstall`（自动适配 systemd/OpenRC/launchd/Windows 服务）。改动 `install.sh`/`install.ps1` 只对新装或下次 `fmc update` 生效。
 
 ## 9. 提交规范
 

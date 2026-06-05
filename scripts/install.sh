@@ -544,22 +544,22 @@ setup_service() {
 }
 
 # ----------------------------------------------------------------------------
-# 生成统一管理命令 fms (封装 服务管理 / 更新 / 卸载 / 信息查看)
-#   安装到 ${INSTALL_DIR}/fms (该目录已在 PATH 上, 全局可直接调用 fms <命令>)
+# 生成统一管理命令 fmc (封装 服务管理 / 更新 / 卸载 / 信息查看)
+#   安装到 ${INSTALL_DIR}/fmc (该目录已在 PATH 上, 全局可直接调用 fmc <命令>)
 # ----------------------------------------------------------------------------
 install_cli() {
-    _cli="${INSTALL_DIR}/fms"
+    _cli="${INSTALL_DIR}/fmc"
     info "安装管理命令: ${_cli}"
     # TMP_DIR 正常已由下载阶段创建; 兜底再建一次
     [ -n "$TMP_DIR" ] && [ -d "$TMP_DIR" ] || TMP_DIR="$(mktemp -d 2>/dev/null || mktemp -d -t frpmgr)"
-    _tmp_cli="${TMP_DIR}/fms"
+    _tmp_cli="${TMP_DIR}/fmc"
 
     # 头部: 注入安装期常量 (此 heredoc 不加引号, 变量会被展开并固化进脚本)
     cat > "$_tmp_cli" <<EOF
 #!/bin/sh
 # =============================================================================
-# fms — frpmgrd 管理命令 (由 install.sh 自动生成, 请勿手动编辑)
-#   用法: fms <命令> [参数]   (fms help 查看全部命令)
+# fmc — frpmgrd 管理命令 (由 install.sh 自动生成, 请勿手动编辑)
+#   用法: fmc <命令> [参数]   (fmc help 查看全部命令)
 # =============================================================================
 REPO="${REPO}"
 BIN_NAME="${BIN_NAME}"
@@ -571,7 +571,7 @@ RAW_URL="https://raw.githubusercontent.com/${REPO}/main/scripts/install.sh"
 EOF
 
     # 主体: 运行期逻辑 (单引号 heredoc, 保持 \$ 变量与转义原样写入)
-    cat >> "$_tmp_cli" <<'FMS_EOF'
+    cat >> "$_tmp_cli" <<'FMC_EOF'
 set -eu
 
 if [ -t 1 ]; then
@@ -688,16 +688,16 @@ cmd_logs() {
 cli_panel() {
     printf "%b\n" "────────────────────────────────────────────"
     printf "%b\n" "  ${C_BOLD}管理命令 (已安装到 PATH, 任意目录可用):${C_RST}"
-    printf "    ${C_BOLD}%-13s${C_RST} # %s\n" "fms start"     "启动服务"
-    printf "    ${C_BOLD}%-13s${C_RST} # %s\n" "fms stop"      "停止服务"
-    printf "    ${C_BOLD}%-13s${C_RST} # %s\n" "fms restart"   "重启服务"
-    printf "    ${C_BOLD}%-13s${C_RST} # %s\n" "fms status"    "查看状态"
-    printf "    ${C_BOLD}%-13s${C_RST} # %s\n" "fms logs -f"   "实时日志"
-    printf "    ${C_BOLD}%-13s${C_RST} # %s\n" "fms info"      "查看完整信息"
-    printf "    ${C_BOLD}%-13s${C_RST} # %s\n" "fms config"    "查看/编辑配置"
-    printf "    ${C_BOLD}%-13s${C_RST} # %s\n" "fms update"    "更新到最新版"
-    printf "    ${C_BOLD}%-13s${C_RST} # %s\n" "fms uninstall" "卸载"
-    printf "    ${C_BOLD}%-13s${C_RST} # %s\n" "fms help"      "查看全部命令"
+    printf "    ${C_BOLD}%-13s${C_RST} # %s\n" "fmc start"     "启动服务"
+    printf "    ${C_BOLD}%-13s${C_RST} # %s\n" "fmc stop"      "停止服务"
+    printf "    ${C_BOLD}%-13s${C_RST} # %s\n" "fmc restart"   "重启服务"
+    printf "    ${C_BOLD}%-13s${C_RST} # %s\n" "fmc status"    "查看状态"
+    printf "    ${C_BOLD}%-13s${C_RST} # %s\n" "fmc logs -f"   "实时日志"
+    printf "    ${C_BOLD}%-13s${C_RST} # %s\n" "fmc info"      "查看完整信息"
+    printf "    ${C_BOLD}%-13s${C_RST} # %s\n" "fmc config"    "查看/编辑配置"
+    printf "    ${C_BOLD}%-13s${C_RST} # %s\n" "fmc update"    "更新到最新版"
+    printf "    ${C_BOLD}%-13s${C_RST} # %s\n" "fmc uninstall" "卸载"
+    printf "    ${C_BOLD}%-13s${C_RST} # %s\n" "fmc help"      "查看全部命令"
     printf "%b\n" "────────────────────────────────────────────"
 }
 cmd_info() {
@@ -728,7 +728,7 @@ cmd_info() {
     printf "  监听地址 : %s\n" "${_addr:-:8080}"
     printf "  日志级别 : %s\n" "$_loglv"
     printf "  程序路径 : %s\n" "${INSTALL_DIR}/${BIN_NAME}"
-    printf "  管理命令 : %s\n" "${INSTALL_DIR}/fms"
+    printf "  管理命令 : %s\n" "${INSTALL_DIR}/fmc"
     printf "  配置文件 : %s\n" "$ENV_FILE"
     printf "  数据目录 : %s\n" "$_ddir"
     printf "  服务文件 : %s\n" "$_svc"
@@ -740,7 +740,7 @@ cmd_config() {
     case "${1:-show}" in
         edit)
             priv "${EDITOR:-vi}" "$ENV_FILE"
-            warn "如修改了配置, 请执行 fms restart 使其生效"
+            warn "如修改了配置, 请执行 fmc restart 使其生效"
             ;;
         *)  priv cat "$ENV_FILE" ;;
     esac
@@ -750,13 +750,13 @@ cmd_update()    { fetch "$RAW_URL" | sh -s -- --update "$@"; }
 cmd_install()   { fetch "$RAW_URL" | sh -s -- "$@"; }
 cmd_uninstall() {
     fetch "$RAW_URL" | sh -s -- --uninstall
-    priv rm -f "${INSTALL_DIR}/fms" 2>/dev/null || true
+    priv rm -f "${INSTALL_DIR}/fmc" 2>/dev/null || true
 }
 
 usage() {
-    printf "%b\n" "${C_BOLD}fms — frpmgrd 管理命令${C_RST}
+    printf "%b\n" "${C_BOLD}fmc — frpmgrd 管理命令${C_RST}
 
-用法: fms <命令> [参数]
+用法: fmc <命令> [参数]
 
 服务管理:
   start            启动服务
@@ -783,7 +783,7 @@ usage() {
 # 子命令收尾的一行轻提示, 引导查看完整命令清单
 cli_tip() {
     printf "%b\n" "────────────────────────────────────────────"
-    printf "%b\n" "${C_BOLD}💡 输入 fms 查看全部命令${C_RST}"
+    printf "%b\n" "${C_BOLD}💡 输入 fmc 查看全部命令${C_RST}"
     printf "%b\n" "────────────────────────────────────────────"
 }
 
@@ -808,10 +808,15 @@ esac
 # 任意子命令执行完都补一行轻提示; help/uninstall 已提前 exit,
 # logs -f 阻塞跟踪不会走到这里, 因此都不会触发
 cli_tip
-FMS_EOF
+FMC_EOF
 
     priv install -m 0755 "$_tmp_cli" "$_cli"
-    ok "管理命令已安装, 现在可直接使用: ${C_BOLD}fms <命令>${C_RST}"
+    # 迁移: 管理命令已由 fms 更名为 fmc, 清除旧版遗留的 fms (升级 / 重装时自动完成)
+    if [ -e "${INSTALL_DIR}/fms" ]; then
+        priv rm -f "${INSTALL_DIR}/fms" 2>/dev/null || true
+        info "已移除旧版管理命令 ${INSTALL_DIR}/fms (现已更名为 fmc)"
+    fi
+    ok "管理命令已安装, 现在可直接使用: ${C_BOLD}fmc <命令>${C_RST}"
 }
 
 # ----------------------------------------------------------------------------
@@ -914,21 +919,21 @@ do_install() {
     print_summary
 }
 
-# 打印 fms 管理命令清单 (安装 / 更新结尾共用, 方便用户直接照着敲)
+# 打印 fmc 管理命令清单 (安装 / 更新结尾共用, 方便用户直接照着敲)
 print_cli_hint() {
     printf "%b\n" "────────────────────────────────────────────"
     printf "%b\n" "  ${C_BOLD}管理命令 (已安装到 PATH, 任意目录可用):${C_RST}"
-    # %-13s 让命令列定宽左对齐 (最长 fms uninstall = 13)，颜色码只在格式串里、不参与宽度计算，# 自然对齐
-    printf "    ${C_BOLD}%-13s${C_RST} # %s\n" "fms start"     "启动服务"
-    printf "    ${C_BOLD}%-13s${C_RST} # %s\n" "fms stop"      "停止服务"
-    printf "    ${C_BOLD}%-13s${C_RST} # %s\n" "fms restart"   "重启服务"
-    printf "    ${C_BOLD}%-13s${C_RST} # %s\n" "fms status"    "查看状态"
-    printf "    ${C_BOLD}%-13s${C_RST} # %s\n" "fms logs -f"   "实时日志"
-    printf "    ${C_BOLD}%-13s${C_RST} # %s\n" "fms info"      "查看完整信息"
-    printf "    ${C_BOLD}%-13s${C_RST} # %s\n" "fms config"    "查看/编辑配置"
-    printf "    ${C_BOLD}%-13s${C_RST} # %s\n" "fms update"    "更新到最新版"
-    printf "    ${C_BOLD}%-13s${C_RST} # %s\n" "fms uninstall" "卸载"
-    printf "    ${C_BOLD}%-13s${C_RST} # %s\n" "fms help"      "查看全部命令"
+    # %-13s 让命令列定宽左对齐 (最长 fmc uninstall = 13)，颜色码只在格式串里、不参与宽度计算，# 自然对齐
+    printf "    ${C_BOLD}%-13s${C_RST} # %s\n" "fmc start"     "启动服务"
+    printf "    ${C_BOLD}%-13s${C_RST} # %s\n" "fmc stop"      "停止服务"
+    printf "    ${C_BOLD}%-13s${C_RST} # %s\n" "fmc restart"   "重启服务"
+    printf "    ${C_BOLD}%-13s${C_RST} # %s\n" "fmc status"    "查看状态"
+    printf "    ${C_BOLD}%-13s${C_RST} # %s\n" "fmc logs -f"   "实时日志"
+    printf "    ${C_BOLD}%-13s${C_RST} # %s\n" "fmc info"      "查看完整信息"
+    printf "    ${C_BOLD}%-13s${C_RST} # %s\n" "fmc config"    "查看/编辑配置"
+    printf "    ${C_BOLD}%-13s${C_RST} # %s\n" "fmc update"    "更新到最新版"
+    printf "    ${C_BOLD}%-13s${C_RST} # %s\n" "fmc uninstall" "卸载"
+    printf "    ${C_BOLD}%-13s${C_RST} # %s\n" "fmc help"      "查看全部命令"
     printf "%b\n" "────────────────────────────────────────────"
 }
 
@@ -972,7 +977,7 @@ do_update() {
 
     info "准备更新: ${C_BOLD}${_cur:-?}${C_RST} -> ${C_BOLD}${_target}${C_RST}"
     download_and_install            # 下载并覆盖二进制 (不动配置)
-    install_cli                     # 顺带刷新管理命令 fms 到最新
+    install_cli                     # 顺带刷新管理命令 fmc 到最新
     restart_service                 # 重启以加载新二进制
 
     # 尽力做一次健康检查 (端口取自现有配置)
@@ -1023,8 +1028,8 @@ do_uninstall() {
     priv rm -f "${INSTALL_DIR}/${BIN_NAME}"
     ok "已删除二进制 ${INSTALL_DIR}/${BIN_NAME}"
 
-    priv rm -f "${INSTALL_DIR}/fms"
-    ok "已删除管理命令 ${INSTALL_DIR}/fms"
+    priv rm -f "${INSTALL_DIR}/fmc"
+    ok "已删除管理命令 ${INSTALL_DIR}/fmc"
 
     prompt "是否同时删除配置文件与数据目录 (${DATA_DIR})? [y/N]" "N"
     case "$REPLY" in
