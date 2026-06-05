@@ -711,6 +711,14 @@ const Configs: React.FC = () => {
           user: values.user || undefined,
           serverAddr: values.serverAddr || '127.0.0.1',
           serverPort: values.serverPort || 7000,
+          // 新建即预填一套兼容 Cloudflare 代理（约 100s 空闲超时）的稳健连接默认值：
+          // 心跳间隔取 20s（远小于 CF 空闲超时，主动保活防断），其余沿用 frp 推荐值。
+          transport: {
+            dialServerTimeout: 10,
+            heartbeatInterval: 20,
+            heartbeatTimeout: 90,
+            poolCount: 5,
+          },
           auth: {
             method: 'token',
             token: values.token || '',
@@ -1509,26 +1517,26 @@ const Configs: React.FC = () => {
                                     </Col>
                                     <Col span={12}>
                                       <Form.Item label={<span>连接超时时间 (秒)</span>} name="dialServerTimeout">
-                                        <InputNumber min={1} style={{ width: '100%' }} />
+                                        <InputNumber min={1} style={{ width: '100%' }} placeholder="默认 10" />
                                       </Form.Item>
                                     </Col>
                                   </Row>
                                   <Row gutter={16}>
                                     <Col span={12}>
                                       <Form.Item label={<span>保活心跳间隔 (秒)</span>} name="heartbeatInterval">
-                                        <InputNumber min={1} style={{ width: '100%' }} />
+                                        <InputNumber min={1} style={{ width: '100%' }} placeholder="默认 20（CF 代理建议）" />
                                       </Form.Item>
                                     </Col>
                                     <Col span={12}>
                                       <Form.Item label={<span>心跳超时阈值 (秒)</span>} name="heartbeatTimeout">
-                                        <InputNumber min={1} style={{ width: '100%' }} />
+                                        <InputNumber min={1} style={{ width: '100%' }} placeholder="默认 90" />
                                       </Form.Item>
                                     </Col>
                                   </Row>
                                   <Row gutter={16}>
                                     <Col span={12}>
                                       <Form.Item label={<span>连接池初始数量 (pool_count)</span>} name="poolCount">
-                                        <InputNumber min={0} max={100} style={{ width: '100%' }} />
+                                        <InputNumber min={0} max={100} style={{ width: '100%' }} placeholder="默认 5" />
                                       </Form.Item>
                                     </Col>
                                     <Col span={12}>
