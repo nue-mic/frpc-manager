@@ -160,9 +160,32 @@ const MainLayout: React.FC = () => {
           }}
         >
           <SafetyCertificateOutlined style={{ fontSize: 22, color: token.colorPrimary }} />
-          <Text strong style={{ color: '#fff', fontSize: 15, letterSpacing: 0.5 }}>
-            FRPC <span style={{ fontWeight: 400, fontSize: 12, opacity: 0.5 }}>客户端</span>
-          </Text>
+          <div style={{ display: 'flex', flexDirection: 'column', lineHeight: 1.15, minWidth: 0 }}>
+            <Text
+              strong
+              style={{
+                color: '#fff',
+                fontSize: 15,
+                letterSpacing: 1.2,
+                background: 'linear-gradient(90deg, #22d3ee, #818cf8)',
+                WebkitBackgroundClip: 'text',
+                WebkitTextFillColor: 'transparent',
+                backgroundClip: 'text',
+              }}
+            >
+              FRPC
+            </Text>
+            <Text
+              style={{
+                color: 'rgba(255,255,255,0.55)',
+                fontSize: 10.5,
+                letterSpacing: 0.8,
+                whiteSpace: 'nowrap',
+              }}
+            >
+              客户端管理面板
+            </Text>
+          </div>
         </div>
         <Menu
           theme="dark"
