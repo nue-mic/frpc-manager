@@ -1,0 +1,153 @@
+/* FRPC 登录页 —— 固定深色科技风（不随全站亮/暗主题切换） */
+.frpc-login {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  background: radial-gradient(circle at 50% 0%, #131c33 0%, #0a0e1a 60%, #070a14 100%);
+}
+
+/* 缓慢浮动的青/紫光晕 */
+.frpc-login__glow {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(80px);
+  opacity: 0.5;
+  pointer-events: none;
+}
+.frpc-login__glow--cyan {
+  width: 480px;
+  height: 480px;
+  background: #22d3ee;
+  top: -120px;
+  left: -100px;
+  animation: frpcFloatA 14s ease-in-out infinite;
+}
+.frpc-login__glow--violet {
+  width: 520px;
+  height: 520px;
+  background: #818cf8;
+  bottom: -160px;
+  right: -120px;
+  animation: frpcFloatB 18s ease-in-out infinite;
+}
+
+/* 极淡网格纹理，向边缘渐隐 */
+.frpc-login__grid {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.04) 1px, transparent 1px);
+  background-size: 44px 44px;
+  -webkit-mask-image: radial-gradient(circle at 50% 50%, #000 0%, transparent 75%);
+  mask-image: radial-gradient(circle at 50% 50%, #000 0%, transparent 75%);
+}
+
+/* 毛玻璃卡片 */
+.frpc-login__card {
+  position: relative;
+  z-index: 2;
+  width: 420px;
+  padding: 40px 36px;
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  -webkit-backdrop-filter: blur(20px);
+  backdrop-filter: blur(20px);
+  box-shadow:
+    0 24px 60px rgba(0, 0, 0, 0.5),
+    inset 0 1px 0 rgba(255, 255, 255, 0.12),
+    0 0 0 1px rgba(34, 211, 238, 0.08);
+  animation: frpcCardIn 0.7s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* 品牌图标圈 */
+.frpc-login__badge {
+  width: 64px;
+  height: 64px;
+  margin: 0 auto 14px;
+  border-radius: 16px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, rgba(34, 211, 238, 0.18), rgba(129, 140, 248, 0.18));
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  box-shadow: 0 0 28px rgba(34, 211, 238, 0.25);
+}
+
+/* 品牌渐变字 */
+.frpc-login__brand {
+  margin: 0;
+  font-size: 38px;
+  font-weight: 800;
+  letter-spacing: 6px;
+  line-height: 1.1;
+  background: linear-gradient(90deg, #22d3ee, #818cf8);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  text-shadow: 0 0 24px rgba(34, 211, 238, 0.35);
+}
+.frpc-login__sub {
+  margin-top: 6px;
+  color: rgba(255, 255, 255, 0.55);
+  font-size: 13px;
+  letter-spacing: 2px;
+}
+.frpc-login__hint {
+  margin-top: 18px;
+  text-align: center;
+  color: rgba(255, 255, 255, 0.35);
+  font-size: 12px;
+}
+
+/* AntD 输入框 / 按钮在登录页内的深色覆盖 */
+.frpc-login .ant-input-affix-wrapper {
+  background: rgba(255, 255, 255, 0.05);
+  border-color: rgba(255, 255, 255, 0.14);
+}
+.frpc-login .ant-input-affix-wrapper input {
+  background: transparent;
+  color: #fff;
+}
+.frpc-login .ant-input-affix-wrapper input::placeholder {
+  color: rgba(255, 255, 255, 0.3);
+}
+.frpc-login .ant-input-affix-wrapper .ant-input-prefix .anticon,
+.frpc-login .ant-input-affix-wrapper .ant-input-suffix .anticon {
+  color: rgba(255, 255, 255, 0.4);
+}
+.frpc-login .ant-input-affix-wrapper:focus-within {
+  border-color: #22d3ee;
+  box-shadow: 0 0 0 2px rgba(34, 211, 238, 0.18);
+}
+.frpc-login__btn {
+  height: 44px;
+  border: none;
+  font-weight: 600;
+  letter-spacing: 1px;
+  background: linear-gradient(90deg, #22d3ee, #818cf8);
+  box-shadow: 0 8px 24px rgba(34, 211, 238, 0.3);
+  transition: box-shadow 0.25s ease, transform 0.15s ease;
+}
+.frpc-login__btn:hover {
+  box-shadow: 0 10px 32px rgba(129, 140, 248, 0.5) !important;
+  transform: translateY(-1px);
+}
+
+@keyframes frpcFloatA {
+  0%, 100% { transform: translate(0, 0); }
+  50% { transform: translate(60px, 40px); }
+}
+@keyframes frpcFloatB {
+  0%, 100% { transform: translate(0, 0); }
+  50% { transform: translate(-50px, -30px); }
+}
+@keyframes frpcCardIn {
+  from { opacity: 0; transform: translateY(24px); }
+  to { opacity: 1; transform: translateY(0); }
+}

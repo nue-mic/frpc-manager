@@ -1,15 +1,13 @@
 import { useState, useEffect } from 'react';
-import { Card, Input, Button, Form, Typography, Space, App, theme as antdTheme } from 'antd';
-import { KeyOutlined, SafetyCertificateOutlined, ArrowRightOutlined } from '@ant-design/icons';
+import { Input, Button, Form, App } from 'antd';
+import { KeyOutlined, ArrowRightOutlined, ThunderboltOutlined } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import client, { setAPIToken, getAPIToken } from '../api/client';
-
-const { Title, Text } = Typography;
+import './Login.css';
 
 const Login: React.FC = () => {
   const navigate = useNavigate();
   const { message } = App.useApp();
-  const { token } = antdTheme.useToken();
   const [loading, setLoading] = useState<boolean>(false);
 
   useEffect(() => {
@@ -38,58 +36,21 @@ const Login: React.FC = () => {
   };
 
   return (
-    <div
-      style={{
-        display: 'flex',
-        justifyContent: 'center',
-        alignItems: 'center',
-        minHeight: '100vh',
-        width: '100vw',
-        background: token.colorBgLayout,
-        backgroundImage: `radial-gradient(circle at 20% 25%, ${token.colorPrimaryBg} 0%, transparent 55%), radial-gradient(circle at 85% 75%, ${token.colorInfoBg} 0%, transparent 60%)`,
-      }}
-    >
-      <Card
-        style={{
-          width: 420,
-          borderRadius: 16,
-          boxShadow: token.boxShadowSecondary,
-        }}
-        styles={{ body: { padding: 32 } }}
-      >
-        <Space direction="vertical" size={20} style={{ width: '100%', textAlign: 'center' }}>
-          <div
-            style={{
-              width: 64,
-              height: 64,
-              borderRadius: '50%',
-              background: token.colorPrimaryBg,
-              display: 'inline-flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              margin: '0 auto',
-              border: `1px solid ${token.colorPrimaryBorder}`,
-            }}
-          >
-            <SafetyCertificateOutlined style={{ fontSize: 30, color: token.colorPrimary }} />
-          </div>
-          <div>
-            <Title level={3} style={{ margin: 0, fontWeight: 600 }}>
-              FRP 控制台登录
-            </Title>
-            <Text type="secondary" style={{ fontSize: 13 }}>
-              请输入 FRP Manager 守护进程配置的 API 鉴权密钥以开始管理。
-            </Text>
-          </div>
-        </Space>
+    <div className="frpc-login">
+      <div className="frpc-login__glow frpc-login__glow--cyan" />
+      <div className="frpc-login__glow frpc-login__glow--violet" />
+      <div className="frpc-login__grid" />
 
-        <Form
-          name="login"
-          onFinish={onFinish}
-          layout="vertical"
-          requiredMark={false}
-          style={{ marginTop: 24 }}
-        >
+      <div className="frpc-login__card">
+        <div style={{ textAlign: 'center', marginBottom: 28 }}>
+          <div className="frpc-login__badge">
+            <ThunderboltOutlined style={{ fontSize: 30, color: '#22d3ee' }} />
+          </div>
+          <h1 className="frpc-login__brand">FRPC</h1>
+          <div className="frpc-login__sub">客户端管理控制台</div>
+        </div>
+
+        <Form name="login" onFinish={onFinish} layout="vertical" requiredMark={false}>
           <Form.Item name="token" rules={[{ required: true, message: '请输入 API 令牌密钥！' }]}>
             <Input.Password
               prefix={<KeyOutlined />}
@@ -99,8 +60,9 @@ const Login: React.FC = () => {
             />
           </Form.Item>
 
-          <Form.Item style={{ marginTop: 16, marginBottom: 0 }}>
+          <Form.Item style={{ marginTop: 8, marginBottom: 0 }}>
             <Button
+              className="frpc-login__btn"
               type="primary"
               htmlType="submit"
               size="large"
@@ -108,11 +70,13 @@ const Login: React.FC = () => {
               block
               icon={<ArrowRightOutlined />}
             >
-              验证并进入控制台
+              进入控制台
             </Button>
           </Form.Item>
         </Form>
-      </Card>
+
+        <div className="frpc-login__hint">请输入 FRPC 守护进程配置的 API 鉴权密钥</div>
+      </div>
     </div>
   );
 };
