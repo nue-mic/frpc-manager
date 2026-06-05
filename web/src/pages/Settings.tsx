@@ -159,7 +159,7 @@ const Settings: React.FC = () => {
               <Descriptions.Item label="应用名称">
                 <Space>
                   <SafetyCertificateOutlined style={{ color: token.colorPrimary }} />
-                  FRP Manager
+                  FRPC
                 </Space>
               </Descriptions.Item>
               <Descriptions.Item label="Daemon 版本">

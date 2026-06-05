@@ -206,7 +206,7 @@ const ImportExport: React.FC = () => {
         <Col xs={24} md={12}>
           <Card title={<Space><CloudUploadOutlined /> 导入本地配置文件</Space>} style={cardStyle}>
             <Paragraph type="secondary">
-              从本地选择现有的 FRP 客户端配置文件（.toml 或 .ini）上传并导入到服务中。
+              从本地选择现有的 FRPC 客户端配置文件（.toml 或 .ini）上传并导入到服务中。
             </Paragraph>
 
             <Space direction="vertical" style={{ width: '100%', marginTop: 8 }}>
