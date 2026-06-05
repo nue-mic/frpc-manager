@@ -26,12 +26,12 @@ type Config struct {
 // without sensible defaults will return an error.
 func Load() (*Config, error) {
 	cfg := &Config{
-		HTTPAddr:     getEnv("FRPMGR_HTTP_ADDR", ":8080"),
-		APIToken:     os.Getenv("FRPMGR_API_TOKEN"),
-		CORSOrigins:  splitCSV(getEnv("FRPMGR_CORS_ORIGINS", "*")),
-		DataDir:      getEnv("FRPMGR_DATA_DIR", "/data"),
-		LogLevel:     strings.ToLower(getEnv("FRPMGR_LOG_LEVEL", "info")),
-		DocsEnabled:  parseBool(getEnv("FRPMGR_DOCS_ENABLED", "true"), true),
+		HTTPAddr:     getEnv("FRPCMGR_HTTP_ADDR", ":8080"),
+		APIToken:     os.Getenv("FRPCMGR_API_TOKEN"),
+		CORSOrigins:  splitCSV(getEnv("FRPCMGR_CORS_ORIGINS", "*")),
+		DataDir:      getEnv("FRPCMGR_DATA_DIR", "/data"),
+		LogLevel:     strings.ToLower(getEnv("FRPCMGR_LOG_LEVEL", "info")),
+		DocsEnabled:  parseBool(getEnv("FRPCMGR_DOCS_ENABLED", "true"), true),
 		ShutdownWait: 10 * time.Second,
 	}
 	cfg.ProfilesDir = cfg.DataDir + "/profiles"
@@ -40,7 +40,7 @@ func Load() (*Config, error) {
 	cfg.MetaFile = cfg.DataDir + "/meta.json"
 
 	if cfg.APIToken == "" {
-		return nil, errors.New("FRPMGR_API_TOKEN is required")
+		return nil, errors.New("FRPCMGR_API_TOKEN is required")
 	}
 	return cfg, nil
 }

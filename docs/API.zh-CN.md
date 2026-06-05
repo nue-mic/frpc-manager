@@ -9,13 +9,13 @@
 
 | 项目 | 值 |
 |---|---|
-| 监听地址 | `FRPMGR_HTTP_ADDR`，默认 `:8080` |
-| 数据目录 | `FRPMGR_DATA_DIR`，默认 `/data` |
-| 鉴权 | 除 `/api/v1/health` 与 `/api/docs/*` 外，所有 `/api/v1/*` 都要求 `Authorization: Bearer <FRPMGR_API_TOKEN>` |
+| 监听地址 | `FRPCMGR_HTTP_ADDR`，默认 `:8080` |
+| 数据目录 | `FRPCMGR_DATA_DIR`，默认 `/data` |
+| 鉴权 | 除 `/api/v1/health` 与 `/api/docs/*` 外，所有 `/api/v1/*` 都要求 `Authorization: Bearer <FRPCMGR_API_TOKEN>` |
 | Content-Type | 除特别说明（`/raw` / `/import/zip` / `/validate` 等）外，**请求/返回均为 `application/json; charset=utf-8`** |
 | 401 时机 | 缺失或错误 Bearer Token；前端拦截器会 `clearAPIToken()` 并跳转 `/login` |
 | 路径 ID 限制 | `id` 不允许 `/ \ : ? * < > | " '`，不能以 `.` 开头，长度 ≤ 64 |
-| WebSocket 子路径 | `/api/v1/events`、`/api/v1/configs/{id}/logs/tail` —— 需要把 `Authorization` 通过 query `?token=...` 或额外协议头携带；CORS 由 `FRPMGR_CORS_ORIGINS` 控制 |
+| WebSocket 子路径 | `/api/v1/events`、`/api/v1/configs/{id}/logs/tail` —— 需要把 `Authorization` 通过 query `?token=...` 或额外协议头携带；CORS 由 `FRPCMGR_CORS_ORIGINS` 控制 |
 
 ### 错误响应统一信封
 
@@ -602,7 +602,7 @@ STUN 失败：`502 / upstream_failure`。
 
 ### 8.0 合并日志模型（v1.2.22+）
 
-> ⚠️ 自 v1.2.22 起，所有 frpc 实例的日志统一写入 `{FRPMGR_DATA_DIR}/logs/frpc.log` 合并日志文件，
+> ⚠️ 自 v1.2.22 起，所有 frpc 实例的日志统一写入 `{FRPCMGR_DATA_DIR}/logs/frpc.log` 合并日志文件，
 > 由 daemon 在 ctx 注入 xlog 前缀 `[inst=<id>]` 区分。本节接口在合并日志上做按
 > 实例前缀的过滤，前端使用方式不变。
 
@@ -618,9 +618,9 @@ xlog ctx），主要分布在 `client/service.go`（vnet/admin）与 `client/con
 （reload/store）。这些行不带 `[inst=<id>]` 前缀，**不会显示在任何单实例视图中**。
 默认情况下用户感知不到（vnet/admin/store 默认都不启用），仅在 reload 时会有
 一条 `success reload conf` 落空。运维需要看全部 frp 内部日志时，可直接在主机上
-`tail -f {FRPMGR_DATA_DIR}/logs/frpc.log`。
+`tail -f {FRPCMGR_DATA_DIR}/logs/frpc.log`。
 
-**LogViewSince 持久化位置**：`{FRPMGR_DATA_DIR}/meta.json` 中的 `log_view_since`
+**LogViewSince 持久化位置**：`{FRPCMGR_DATA_DIR}/meta.json` 中的 `log_view_since`
 字段（`map[string]int64`，键为 instance id，值为 Unix 毫秒）。删除 instance 时
 该键自动清理。
 

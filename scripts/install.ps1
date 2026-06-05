@@ -15,14 +15,14 @@
 #   powershell -ExecutionPolicy Bypass -File install.ps1 -Uninstall
 #
 # 环境变量 (等价于参数, 便于自动化):
-#   $env:FRPMGR_PORT=9000; $env:FRPMGR_API_TOKEN='xxx'; $env:FRPMGR_VERSION='v1.2.14'; $env:ASSUME_YES=1
+#   $env:FRPCMGR_PORT=9000; $env:FRPCMGR_API_TOKEN='xxx'; $env:FRPCMGR_VERSION='v1.2.14'; $env:ASSUME_YES=1
 # =============================================================================
 
 [CmdletBinding()]
 param(
-    [Alias('p')][string]$Port    = $env:FRPMGR_PORT,
-    [Alias('t')][string]$Token   = $env:FRPMGR_API_TOKEN,
-    [Alias('v')][string]$Version = $env:FRPMGR_VERSION,
+    [Alias('p')][string]$Port    = $env:FRPCMGR_PORT,
+    [Alias('t')][string]$Token   = $env:FRPCMGR_API_TOKEN,
+    [Alias('v')][string]$Version = $env:FRPCMGR_VERSION,
     [Alias('y')][switch]$Yes,
     [Alias('u')][switch]$Update,
     [Alias('f')][switch]$Force,
@@ -379,12 +379,12 @@ function Register-FrpmgrService {
 
     # 环境变量注入 (等价于 systemd EnvironmentFile)
     $envPairs = @(
-        "FRPMGR_API_TOKEN=$($script:Token)",
-        "FRPMGR_HTTP_ADDR=:$($script:Port)",
-        "FRPMGR_DATA_DIR=$DataDir",
-        "FRPMGR_LOG_LEVEL=info",
-        "FRPMGR_CORS_ORIGINS=*",
-        "FRPMGR_DOCS_ENABLED=true"
+        "FRPCMGR_API_TOKEN=$($script:Token)",
+        "FRPCMGR_HTTP_ADDR=:$($script:Port)",
+        "FRPCMGR_DATA_DIR=$DataDir",
+        "FRPCMGR_LOG_LEVEL=info",
+        "FRPCMGR_CORS_ORIGINS=*",
+        "FRPCMGR_DOCS_ENABLED=true"
     )
     & $script:NssmPath set $ServiceName AppEnvironmentExtra @envPairs | Out-Null
 
@@ -431,7 +431,7 @@ $NssmPath = Join-Path $InstallDir 'nssm.exe'
 $LogFile  = Join-Path $LogDir 'frpcmgrd.log'
 $RawUrl   = "https://raw.githubusercontent.com/$Repo/main/scripts/install.ps1"
 # 允许用镜像源覆盖 install.ps1 下载地址 (适配国内网络)
-if ($env:FRPMGR_INSTALL_URL) { $RawUrl = $env:FRPMGR_INSTALL_URL }
+if ($env:FRPCMGR_INSTALL_URL) { $RawUrl = $env:FRPCMGR_INSTALL_URL }
 
 $AllArgs = @($args)
 $Cmd  = if ($AllArgs.Count -ge 1) { $AllArgs[0] } else { 'help' }
@@ -487,10 +487,10 @@ function Do-Info {
     if (Use-Nssm) {
         $raw = & $NssmPath get $ServiceName AppEnvironmentExtra 2>$null
         foreach ($line in $raw) {
-            if     ($line -match '^FRPMGR_HTTP_ADDR=(.*)$') { $port  = $Matches[1].TrimStart(':') }
-            elseif ($line -match '^FRPMGR_API_TOKEN=(.*)$') { $token = $Matches[1] }
-            elseif ($line -match '^FRPMGR_DATA_DIR=(.*)$')  { $ddir  = $Matches[1] }
-            elseif ($line -match '^FRPMGR_LOG_LEVEL=(.*)$') { $loglv = $Matches[1] }
+            if     ($line -match '^FRPCMGR_HTTP_ADDR=(.*)$') { $port  = $Matches[1].TrimStart(':') }
+            elseif ($line -match '^FRPCMGR_API_TOKEN=(.*)$') { $token = $Matches[1] }
+            elseif ($line -match '^FRPCMGR_DATA_DIR=(.*)$')  { $ddir  = $Matches[1] }
+            elseif ($line -match '^FRPCMGR_LOG_LEVEL=(.*)$') { $loglv = $Matches[1] }
         }
     }
     $ver = '未知'
@@ -618,7 +618,7 @@ Write-CliTip
 function Get-ServicePort {
     if (-not (Test-Service)) { return '' }
     $raw = & $script:NssmPath get $ServiceName AppEnvironmentExtra 2>$null
-    $line = $raw | Where-Object { $_ -match '^FRPMGR_HTTP_ADDR=' } | Select-Object -First 1
+    $line = $raw | Where-Object { $_ -match '^FRPCMGR_HTTP_ADDR=' } | Select-Object -First 1
     if ($line) { return ($line -split '=', 2)[1].TrimStart(':') }
     return ''
 }

@@ -16,7 +16,7 @@
 #   sh install.sh --uninstall
 #
 # 环境变量 (等价于命令行参数, 便于自动化):
-#   FRPMGR_PORT=9000  FRPMGR_API_TOKEN=xxx  FRPMGR_VERSION=v1.2.10  ASSUME_YES=1
+#   FRPCMGR_PORT=9000  FRPCMGR_API_TOKEN=xxx  FRPCMGR_VERSION=v1.2.10  ASSUME_YES=1
 # =============================================================================
 
 set -eu
@@ -36,9 +36,9 @@ ARCH=""
 DATA_DIR=""
 ENV_FILE=""
 DOWNLOADER=""
-VERSION="${FRPMGR_VERSION:-}"
-PORT="${FRPMGR_PORT:-}"
-TOKEN="${FRPMGR_API_TOKEN:-}"
+VERSION="${FRPCMGR_VERSION:-}"
+PORT="${FRPCMGR_PORT:-}"
+TOKEN="${FRPCMGR_API_TOKEN:-}"
 ASSUME_YES="${ASSUME_YES:-0}"
 FORCE="0"
 ACTION="install"
@@ -95,7 +95,7 @@ ${C_BOLD}frpcmgrd 一键安装脚本${C_RST}
   sh install.sh --uninstall                     # 卸载
 
 环境变量等价形式 (适合 CI/自动化):
-  FRPMGR_PORT=9000 FRPMGR_API_TOKEN=xxx ASSUME_YES=1 sh install.sh
+  FRPCMGR_PORT=9000 FRPCMGR_API_TOKEN=xxx ASSUME_YES=1 sh install.sh
 EOF
 }
 
@@ -393,12 +393,12 @@ write_env_file() {
     _tmp_env="${TMP_DIR}/frpcmgrd.env"
     cat > "$_tmp_env" <<EOF
 # frpcmgrd 运行配置 (由 install.sh 生成)
-FRPMGR_API_TOKEN=${TOKEN}
-FRPMGR_HTTP_ADDR=:${PORT}
-FRPMGR_DATA_DIR=${DATA_DIR}
-FRPMGR_LOG_LEVEL=info
-FRPMGR_CORS_ORIGINS=*
-FRPMGR_DOCS_ENABLED=true
+FRPCMGR_API_TOKEN=${TOKEN}
+FRPCMGR_HTTP_ADDR=:${PORT}
+FRPCMGR_DATA_DIR=${DATA_DIR}
+FRPCMGR_LOG_LEVEL=info
+FRPCMGR_CORS_ORIGINS=*
+FRPCMGR_DOCS_ENABLED=true
 EOF
     priv install -m 0600 "$_tmp_env" "$ENV_FILE"
 }
@@ -503,13 +503,13 @@ setup_launchd() {
     </array>
     <key>EnvironmentVariables</key>
     <dict>
-        <key>FRPMGR_API_TOKEN</key>
+        <key>FRPCMGR_API_TOKEN</key>
         <string>${TOKEN}</string>
-        <key>FRPMGR_HTTP_ADDR</key>
+        <key>FRPCMGR_HTTP_ADDR</key>
         <string>:${PORT}</string>
-        <key>FRPMGR_DATA_DIR</key>
+        <key>FRPCMGR_DATA_DIR</key>
         <string>${DATA_DIR}</string>
-        <key>FRPMGR_LOG_LEVEL</key>
+        <key>FRPCMGR_LOG_LEVEL</key>
         <string>info</string>
     </dict>
     <key>RunAtLoad</key>
@@ -595,8 +595,8 @@ priv() { $SUDO "$@"; }
 
 PLIST="/Library/LaunchDaemons/com.miaclark.${SERVICE_NAME}.plist"
 
-# 允许用镜像源覆盖 install.sh 下载地址 (适配国内网络): FRPMGR_INSTALL_URL=https://镜像/install.sh
-if [ -n "${FRPMGR_INSTALL_URL:-}" ]; then RAW_URL="$FRPMGR_INSTALL_URL"; fi
+# 允许用镜像源覆盖 install.sh 下载地址 (适配国内网络): FRPCMGR_INSTALL_URL=https://镜像/install.sh
+if [ -n "${FRPCMGR_INSTALL_URL:-}" ]; then RAW_URL="$FRPCMGR_INSTALL_URL"; fi
 
 # 运行期探测 init 系统 (与安装时解耦, 迁移/换系统也能用)
 detect_init() {
@@ -701,10 +701,10 @@ cli_panel() {
     printf "%b\n" "────────────────────────────────────────────"
 }
 cmd_info() {
-    _addr="$(env_get FRPMGR_HTTP_ADDR)"; _port="${_addr#:}"; [ -n "$_port" ] || _port="8080"
-    _token="$(env_get FRPMGR_API_TOKEN)"
-    _ddir="$(env_get FRPMGR_DATA_DIR)";  [ -n "$_ddir" ] || _ddir="$DATA_DIR"
-    _loglv="$(env_get FRPMGR_LOG_LEVEL)"; [ -n "$_loglv" ] || _loglv="info"
+    _addr="$(env_get FRPCMGR_HTTP_ADDR)"; _port="${_addr#:}"; [ -n "$_port" ] || _port="8080"
+    _token="$(env_get FRPCMGR_API_TOKEN)"
+    _ddir="$(env_get FRPCMGR_DATA_DIR)";  [ -n "$_ddir" ] || _ddir="$DATA_DIR"
+    _loglv="$(env_get FRPCMGR_LOG_LEVEL)"; [ -n "$_loglv" ] || _loglv="info"
     _ver="$("${INSTALL_DIR}/${BIN_NAME}" version 2>/dev/null || echo 未知)"
     case "$(detect_init)" in
         systemd) _svc="/etc/systemd/system/${SERVICE_NAME}.service"
@@ -833,13 +833,13 @@ get_installed_version() {
 # ----------------------------------------------------------------------------
 read_env_port() {
     if [ -f "$ENV_FILE" ]; then
-        _addr="$(grep '^FRPMGR_HTTP_ADDR=' "$ENV_FILE" 2>/dev/null | head -n1 | cut -d= -f2)"
+        _addr="$(grep '^FRPCMGR_HTTP_ADDR=' "$ENV_FILE" 2>/dev/null | head -n1 | cut -d= -f2)"
         echo "${_addr#:}"
     elif [ "$OS" = "darwin" ]; then
         _plist="/Library/LaunchDaemons/com.miaclark.${SERVICE_NAME}.plist"
         if [ -f "$_plist" ] && [ -x /usr/libexec/PlistBuddy ]; then
             _addr="$(priv /usr/libexec/PlistBuddy -c \
-                "Print :EnvironmentVariables:FRPMGR_HTTP_ADDR" "$_plist" 2>/dev/null)"
+                "Print :EnvironmentVariables:FRPCMGR_HTTP_ADDR" "$_plist" 2>/dev/null)"
             echo "${_addr#:}"
         fi
     fi

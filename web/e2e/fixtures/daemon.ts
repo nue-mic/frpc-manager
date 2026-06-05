@@ -52,10 +52,10 @@ export const test = base.extend<{}, Fixtures>({
       const proc: ChildProcess = spawn(bin, ['serve'], {
         env: {
           ...process.env,
-          FRPMGR_API_TOKEN: token,
-          FRPMGR_HTTP_ADDR: `:${port}`,
-          FRPMGR_DATA_DIR: dataDir,
-          FRPMGR_LOG_LEVEL: 'info',
+          FRPCMGR_API_TOKEN: token,
+          FRPCMGR_HTTP_ADDR: `:${port}`,
+          FRPCMGR_DATA_DIR: dataDir,
+          FRPCMGR_LOG_LEVEL: 'info',
         },
         stdio: ['ignore', 'pipe', 'pipe'],
       });

@@ -47,4 +47,4 @@ docker:
 	  .
 
 run: build-host
-	FRPMGR_API_TOKEN=dev FRPMGR_DATA_DIR=./tmp/data ./bin/frpcmgrd serve
+	FRPCMGR_API_TOKEN=dev FRPCMGR_DATA_DIR=./tmp/data ./bin/frpcmgrd serve

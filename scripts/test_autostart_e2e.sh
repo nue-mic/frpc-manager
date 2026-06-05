@@ -29,10 +29,10 @@ DAEMON_PID=
 start_daemon() {
   local marker=$1
   : > "${DATA}/daemon.log"
-  FRPMGR_HTTP_ADDR=":${PORT}" \
-  FRPMGR_API_TOKEN="${TOKEN}" \
-  FRPMGR_DATA_DIR="${DATA}" \
-  FRPMGR_LOG_LEVEL=debug \
+  FRPCMGR_HTTP_ADDR=":${PORT}" \
+  FRPCMGR_API_TOKEN="${TOKEN}" \
+  FRPCMGR_DATA_DIR="${DATA}" \
+  FRPCMGR_LOG_LEVEL=debug \
   "${BIN}" serve >>"${DATA}/daemon.log" 2>&1 &
   DAEMON_PID=$!
   for _ in $(seq 1 50); do

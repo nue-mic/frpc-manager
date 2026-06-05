@@ -23,14 +23,14 @@ services:
     # tcp/http proxies and want stricter isolation.
     network_mode: host
     environment:
-      FRPMGR_API_TOKEN: ${FRPMGR_API_TOKEN:?api token required (set in .env)}
-      FRPMGR_HTTP_ADDR: ":${FRPMGR_HTTP_PORT:-8080}"
-      FRPMGR_CORS_ORIGINS: ${FRPMGR_CORS_ORIGINS:-*}
-      FRPMGR_LOG_LEVEL: ${FRPMGR_LOG_LEVEL:-info}
+      FRPCMGR_API_TOKEN: ${FRPCMGR_API_TOKEN:?api token required (set in .env)}
+      FRPCMGR_HTTP_ADDR: ":${FRPCMGR_HTTP_PORT:-8080}"
+      FRPCMGR_CORS_ORIGINS: ${FRPCMGR_CORS_ORIGINS:-*}
+      FRPCMGR_LOG_LEVEL: ${FRPCMGR_LOG_LEVEL:-info}
     volumes:
       - ./data:/data
     healthcheck:
-      test: ["CMD", "/usr/local/bin/frpcmgrd", "health", "-addr", "http://127.0.0.1:${FRPMGR_HTTP_PORT:-8080}"]
+      test: ["CMD", "/usr/local/bin/frpcmgrd", "health", "-addr", "http://127.0.0.1:${FRPCMGR_HTTP_PORT:-8080}"]
       interval: 30s
       timeout: 5s
       retries: 3

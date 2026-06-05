@@ -75,10 +75,10 @@ COPY --from=build /out/frpcmgrd /usr/local/bin/frpcmgrd
 COPY deploy/entrypoint.sh /usr/local/bin/entrypoint.sh
 RUN chmod +x /usr/local/bin/entrypoint.sh /usr/local/bin/frpcmgrd
 
-ENV FRPMGR_DATA_DIR=/data \
-    FRPMGR_HTTP_ADDR=:8080 \
-    FRPMGR_LOG_LEVEL=info \
-    FRPMGR_CORS_ORIGINS="*"
+ENV FRPCMGR_DATA_DIR=/data \
+    FRPCMGR_HTTP_ADDR=:8080 \
+    FRPCMGR_LOG_LEVEL=info \
+    FRPCMGR_CORS_ORIGINS="*"
 
 EXPOSE 8080
 VOLUME ["/data"]

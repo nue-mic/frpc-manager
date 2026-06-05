@@ -28,7 +28,7 @@ cmd/frpcmgrd/main.go      # 入口：子命令 serve / health / version
 internal/
   api/                   # HTTP 层：server.go 路由 + 各 *.go handler + openapi.yaml
   manager/               # 核心：frpc 实例生命周期、配置加载、自启动、快照
-  appcfg/                # 环境变量配置加载（FRPMGR_* → Config）
+  appcfg/                # 环境变量配置加载（FRPCMGR_* → Config）
   eventbus/              # 事件总线，驱动 WS /events 推送
   logtail/  conntrack/  sysinfo/   # 日志跟踪、连接追踪、系统监控
 pkg/
@@ -52,7 +52,7 @@ make build        # Linux/amd64 构建（发布/镜像用）
 make web          # 仅构建前端 dist
 make test         # go test ./...
 make vet          # go vet ./...
-make run          # 本机构建并以 dev token 启动：FRPMGR_API_TOKEN=dev serve
+make run          # 本机构建并以 dev token 启动：FRPCMGR_API_TOKEN=dev serve
 make docker       # 多阶段镜像（自带 node+go，无需本地依赖）
 ```
 
@@ -82,16 +82,16 @@ make docker       # 多阶段镜像（自带 node+go，无需本地依赖）
 
 ## 7. 配置（全部经环境变量）
 
-由 [internal/appcfg](internal/appcfg) 读取，前缀 `FRPMGR_`：
+由 [internal/appcfg](internal/appcfg) 读取，前缀 `FRPCMGR_`：
 
 | 变量 | 默认 | 说明 |
 |---|---|---|
-| `FRPMGR_API_TOKEN` | （必填） | API 鉴权令牌，登录后台凭证 |
-| `FRPMGR_HTTP_ADDR` | `:8080` | 监听地址 |
-| `FRPMGR_DATA_DIR` | `/data` | 数据根目录（profiles/logs/stores/meta.json） |
-| `FRPMGR_CORS_ORIGINS` | `*` | CORS 白名单 |
-| `FRPMGR_LOG_LEVEL` | `info` | trace/debug/info/warn/error |
-| `FRPMGR_DOCS_ENABLED` | `true` | 是否开放 `/api/docs` |
+| `FRPCMGR_API_TOKEN` | （必填） | API 鉴权令牌，登录后台凭证 |
+| `FRPCMGR_HTTP_ADDR` | `:8080` | 监听地址 |
+| `FRPCMGR_DATA_DIR` | `/data` | 数据根目录（profiles/logs/stores/meta.json） |
+| `FRPCMGR_CORS_ORIGINS` | `*` | CORS 白名单 |
+| `FRPCMGR_LOG_LEVEL` | `info` | trace/debug/info/warn/error |
+| `FRPCMGR_DOCS_ENABLED` | `true` | 是否开放 `/api/docs` |
 
 安装后配置落在 `/etc/frpcmgrd/frpcmgrd.env`（Linux）；数据目录默认 `/var/lib/frpcmgrd`。
 

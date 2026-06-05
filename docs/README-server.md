@@ -7,7 +7,7 @@
 ```bash
 cd deploy/
 cp .env.example .env
-# 至少改一下 FRPMGR_API_TOKEN
+# 至少改一下 FRPCMGR_API_TOKEN
 openssl rand -hex 32  # 复制结果填进 .env
 
 docker compose up -d --build
@@ -24,7 +24,7 @@ curl http://localhost:8080/api/v1/health
 附 token 调用任意 API:
 
 ```bash
-TOKEN=$(grep ^FRPMGR_API_TOKEN= .env | cut -d= -f2)
+TOKEN=$(grep ^FRPCMGR_API_TOKEN= .env | cut -d= -f2)
 curl -H "Authorization: Bearer $TOKEN" http://localhost:8080/api/v1/version
 ```
 
@@ -44,12 +44,12 @@ curl -H "Authorization: Bearer $TOKEN" http://localhost:8080/api/v1/version
 
 | 变量 | 必填 | 默认 | 说明 |
 |---|---|---|---|
-| `FRPMGR_API_TOKEN` | ✓ | — | API 鉴权 Bearer Token |
-| `FRPMGR_HTTP_ADDR` |   | `:8080` | 监听地址 |
-| `FRPMGR_DATA_DIR`  |   | `/data` | 数据根目录 |
-| `FRPMGR_CORS_ORIGINS` |   | `*` | 逗号分隔的 CORS 白名单 |
-| `FRPMGR_LOG_LEVEL` |   | `info` | trace/debug/info/warn/error |
-| `FRPMGR_DOCS_ENABLED` |   | `true` | 是否暴露 `/api/docs` 浏览器 UI(关闭后所有 docs 路由返回 404) |
+| `FRPCMGR_API_TOKEN` | ✓ | — | API 鉴权 Bearer Token |
+| `FRPCMGR_HTTP_ADDR` |   | `:8080` | 监听地址 |
+| `FRPCMGR_DATA_DIR`  |   | `/data` | 数据根目录 |
+| `FRPCMGR_CORS_ORIGINS` |   | `*` | 逗号分隔的 CORS 白名单 |
+| `FRPCMGR_LOG_LEVEL` |   | `info` | trace/debug/info/warn/error |
+| `FRPCMGR_DOCS_ENABLED` |   | `true` | 是否暴露 `/api/docs` 浏览器 UI(关闭后所有 docs 路由返回 404) |
 
 ## 鉴权
 
@@ -96,7 +96,7 @@ curl -H "Authorization: Bearer $TOKEN" http://localhost:8080/api/v1/version
 - HTML 页:`GET /api/docs/` — Scalar reference UI,从 jsdelivr CDN 加载 JS bundle
 - 原始 spec:`GET /api/docs/openapi.yaml`(也支持 `.json` 别名)
 - **默认免鉴权** — 与多数开源 daemon 的 Swagger/ReDoc 端点惯例一致
-- **关闭方式**:`FRPMGR_DOCS_ENABLED=false`(docs 三个路由全部返回 404,其他 API 不受影响)
+- **关闭方式**:`FRPCMGR_DOCS_ENABLED=false`(docs 三个路由全部返回 404,其他 API 不受影响)
 - **离线场景**:如果容器无外网,把 Scalar 的 standalone bundle 下载到本地并修改 [`internal/api/docs.go`](../internal/api/docs.go) 中的 `<script src>` 即可
 
 ## 事件 schema
@@ -207,7 +207,7 @@ make build
 
 ## 故障排查
 
-- **401 unauthorized**: 检查 `FRPMGR_API_TOKEN` 是否对齐
+- **401 unauthorized**: 检查 `FRPCMGR_API_TOKEN` 是否对齐
 - **404 在 WS 时**: 路径必须是 `/api/v1/events`,token 走 `?token=` 或 Authorization header
 - **start 立即返回成功但 proxy.status 不上来**: 看 `/api/v1/configs/{id}/logs/tail`,通常是 frps 端连不上 / token 错
 - **容器健康检查失败**: `docker compose exec frpcmgrd frpcmgrd health`

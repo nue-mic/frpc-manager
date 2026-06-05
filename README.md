@@ -109,7 +109,7 @@ curl -fsSL https://raw.githubusercontent.com/mia-clark/frpc-manager/main/scripts
 | `--uninstall` | 卸载 |
 | `-h, --help` | 查看帮助 |
 
-> 参数可任意组合，已传入的项就不再交互询问。也支持环境变量：`FRPMGR_PORT=9000 FRPMGR_API_TOKEN=xxx ASSUME_YES=1`。
+> 参数可任意组合，已传入的项就不再交互询问。也支持环境变量：`FRPCMGR_PORT=9000 FRPCMGR_API_TOKEN=xxx ASSUME_YES=1`。
 
 ### 🔄 全自动更新与定时更新
 
@@ -157,7 +157,7 @@ curl -fsSL https://gh-raw.966788.xyz/frp-mgr/install.sh | sh -s -- --uninstall
 
 ```bash
 docker run -d --name frpcmgrd --network host \
-  -e FRPMGR_API_TOKEN="$(openssl rand -hex 32)" \
+  -e FRPCMGR_API_TOKEN="$(openssl rand -hex 32)" \
   -v $(pwd)/data:/data \
   ghcr.io/mia-clark/frpc-manager:latest
 ```
@@ -172,7 +172,7 @@ docker run -d --name frpcmgrd --network host \
 curl -O https://raw.githubusercontent.com/mia-clark/frpc-manager/main/deploy/docker-compose.standalone.yml
 curl -O https://raw.githubusercontent.com/mia-clark/frpc-manager/main/deploy/.env.example
 mv .env.example .env
-# 编辑 .env，至少把 FRPMGR_API_TOKEN 设成一个真实令牌
+# 编辑 .env，至少把 FRPCMGR_API_TOKEN 设成一个真实令牌
 docker compose -f docker-compose.standalone.yml up -d
 ```
 
@@ -181,7 +181,7 @@ docker compose -f docker-compose.standalone.yml up -d
 到 [Releases](https://github.com/mia-clark/frpc-manager/releases) 下载对应平台的压缩包（Linux amd64/arm64/armv7、macOS amd64/arm64、Windows amd64/arm64），解压后：
 
 ```bash
-FRPMGR_API_TOKEN=$(openssl rand -hex 32) ./frpcmgrd serve
+FRPCMGR_API_TOKEN=$(openssl rand -hex 32) ./frpcmgrd serve
 ```
 
 ---
@@ -233,12 +233,12 @@ fmc help         # 查看全部命令
 
 | 变量 | 必填 | 默认 | 说明 |
 |---|---|:---:|---|
-| `FRPMGR_API_TOKEN` | ✓ | — | API 鉴权令牌（登录后台的凭证） |
-| `FRPMGR_HTTP_ADDR` |   | `:8080` | 监听地址，格式 `:端口` |
-| `FRPMGR_DATA_DIR`  |   | `/data` | 数据根目录 |
-| `FRPMGR_CORS_ORIGINS` |   | `*` | 逗号分隔的 CORS 白名单 |
-| `FRPMGR_LOG_LEVEL` |   | `info` | `trace`/`debug`/`info`/`warn`/`error` |
-| `FRPMGR_DOCS_ENABLED` |   | `true` | 是否开放 `/api/docs` 在线文档 |
+| `FRPCMGR_API_TOKEN` | ✓ | — | API 鉴权令牌（登录后台的凭证） |
+| `FRPCMGR_HTTP_ADDR` |   | `:8080` | 监听地址，格式 `:端口` |
+| `FRPCMGR_DATA_DIR`  |   | `/data` | 数据根目录 |
+| `FRPCMGR_CORS_ORIGINS` |   | `*` | 逗号分隔的 CORS 白名单 |
+| `FRPCMGR_LOG_LEVEL` |   | `info` | `trace`/`debug`/`info`/`warn`/`error` |
+| `FRPCMGR_DOCS_ENABLED` |   | `true` | 是否开放 `/api/docs` 在线文档 |
 
 ### 数据目录结构
 
@@ -256,8 +256,8 @@ fmc help         # 查看全部命令
 
 ## ❓ 常见问题
 
-- **打开网页提示 401 / 未授权？** 令牌填错了。核对 `/etc/frpcmgrd/frpcmgrd.env` 里的 `FRPMGR_API_TOKEN`。
-- **服务起不来 / 端口被占用？** 换个端口：改 `FRPMGR_HTTP_ADDR=:新端口` 后重启服务；或重装时用 `-p` 指定。
+- **打开网页提示 401 / 未授权？** 令牌填错了。核对 `/etc/frpcmgrd/frpcmgrd.env` 里的 `FRPCMGR_API_TOKEN`。
+- **服务起不来 / 端口被占用？** 换个端口：改 `FRPCMGR_HTTP_ADDR=:新端口` 后重启服务；或重装时用 `-p` 指定。
 - **隧道显示已启动但连不上 frps？** 多半是 frps 地址/端口/令牌不对。在 Web 界面看该隧道的实时日志排查。
 - **公网访问不了后台？** 检查服务器防火墙/安全组是否放行了你设置的端口。
 - **想换成开机不自启？** 直接 `fmc disable` 即可（跨平台通用）。

@@ -7,7 +7,7 @@
 # or host-side chown ritual required.
 set -e
 
-DATA_DIR="${FRPMGR_DATA_DIR:-/data}"
+DATA_DIR="${FRPCMGR_DATA_DIR:-/data}"
 RUN_UID=65532
 RUN_GID=65532
 

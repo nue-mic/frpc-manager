@@ -54,12 +54,12 @@ COMMANDS
   help      Show this help
 
 ENV
-  FRPMGR_API_TOKEN       Required. Bearer token for API auth.
-  FRPMGR_HTTP_ADDR       Listen address (default ":8080")
-  FRPMGR_DATA_DIR        Data root (default "/data")
-  FRPMGR_CORS_ORIGINS    Comma-separated origins or "*" (default "*")
-  FRPMGR_LOG_LEVEL       trace|debug|info|warn|error (default "info")
-  FRPMGR_DOCS_ENABLED    Expose /api/docs Scalar UI (default "true")`)
+  FRPCMGR_API_TOKEN       Required. Bearer token for API auth.
+  FRPCMGR_HTTP_ADDR       Listen address (default ":8080")
+  FRPCMGR_DATA_DIR        Data root (default "/data")
+  FRPCMGR_CORS_ORIGINS    Comma-separated origins or "*" (default "*")
+  FRPCMGR_LOG_LEVEL       trace|debug|info|warn|error (default "info")
+  FRPCMGR_DOCS_ENABLED    Expose /api/docs Scalar UI (default "true")`)
 }
 
 func runServe(args []string) int {
