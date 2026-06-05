@@ -78,7 +78,7 @@ description: Use this skill whenever you are about to write, modify, or debug AN
 写完一处对接后，至少做以下**两项**：
 
 1. **构建** `web/` (`npm run build` 或起 vite dev) 看 TS 类型有没有报错。
-2. **实跑** — 启动 `./frpmgrd-dev.exe serve`，让前端真去打一次接口，在浏览器 Network 里确认：
+2. **实跑** — 启动 `./frpcmgrd-dev.exe serve`，让前端真去打一次接口，在浏览器 Network 里确认：
    - 请求 payload 的 key 与后端结构体一致
    - 响应 body 的 key 与前端读取的 key 一致
    - 状态码符合预期（201/204/200 不能混）

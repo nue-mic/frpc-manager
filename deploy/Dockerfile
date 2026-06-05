@@ -3,8 +3,8 @@
 # 三阶段构建：
 #   1. web-build  —— node:20-alpine 跑 vite build，产出 web/dist
 #   2. build       —— golang:1.25-alpine 把 dist 接进来，go build 单二进制
-#                     (前端通过 //go:embed dist 嵌入 frpmgrd)
-#   3. runtime     —— alpine:3.20 + su-exec，只装 frpmgrd 这一个产物
+#                     (前端通过 //go:embed dist 嵌入 frpcmgrd)
+#   3. runtime     —— alpine:3.20 + su-exec，只装 frpcmgrd 这一个产物
 #
 # 设计目标：在任何环境（CI / 干净 git clone / 本地）都能直接
 # `docker build -f deploy/Dockerfile .`，不需要任何前置 npm/make 步骤。
@@ -58,7 +58,7 @@ RUN CGO_ENABLED=0 GOOS=${TARGETOS} GOARCH=${TARGETARCH} GOARM=${TARGETVARIANT#v}
     -ldflags="-s -w \
       -X github.com/mia-clark/frpc-manager/pkg/version.Number=${VERSION} \
       -X github.com/mia-clark/frpc-manager/pkg/version.BuildDate=${BUILD_DATE}" \
-    -o /out/frpmgrd ./cmd/frpmgrd
+    -o /out/frpcmgrd ./cmd/frpcmgrd
 
 # ----- runtime stage ----------------------------------------------------
 # alpine + su-exec, the same pattern the official postgres/redis images
@@ -71,9 +71,9 @@ RUN apk add --no-cache ca-certificates tzdata su-exec \
     && addgroup -g 65532 -S nonroot \
     && adduser -u 65532 -G nonroot -S -D -H nonroot
 
-COPY --from=build /out/frpmgrd /usr/local/bin/frpmgrd
+COPY --from=build /out/frpcmgrd /usr/local/bin/frpcmgrd
 COPY deploy/entrypoint.sh /usr/local/bin/entrypoint.sh
-RUN chmod +x /usr/local/bin/entrypoint.sh /usr/local/bin/frpmgrd
+RUN chmod +x /usr/local/bin/entrypoint.sh /usr/local/bin/frpcmgrd
 
 ENV FRPMGR_DATA_DIR=/data \
     FRPMGR_HTTP_ADDR=:8080 \

@@ -42,15 +42,15 @@ jobs:
           GOOS: linux
           GOARCH: amd64
         run: |
-          go build -trimpath -ldflags="-s -w" -o bin/frpmgrd ./cmd/frpmgrd
-          file bin/frpmgrd
+          go build -trimpath -ldflags="-s -w" -o bin/frpcmgrd ./cmd/frpcmgrd
+          file bin/frpcmgrd
 
       - name: smoke run --version
-        run: ./bin/frpmgrd version
+        run: ./bin/frpcmgrd version
 
       - uses: actions/upload-artifact@v4
         if: github.event_name == 'pull_request'
         with:
-          name: frpmgrd-linux-amd64
-          path: bin/frpmgrd
+          name: frpcmgrd-linux-amd64
+          path: bin/frpcmgrd
           retention-days: 7

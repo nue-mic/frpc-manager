@@ -31,7 +31,7 @@ func main() {
 	case "health":
 		os.Exit(runHealth(os.Args[2:]))
 	case "version", "-v", "--version":
-		fmt.Printf("frpmgrd %s (frp %s, built %s)\n", version.Number, version.FRPVersion, version.BuildDate)
+		fmt.Printf("frpcmgrd %s (frp %s, built %s)\n", version.Number, version.FRPVersion, version.BuildDate)
 	case "help", "-h", "--help":
 		usage()
 	default:
@@ -42,10 +42,10 @@ func main() {
 }
 
 func usage() {
-	fmt.Fprintln(os.Stderr, `frpmgrd — headless FRP client manager daemon
+	fmt.Fprintln(os.Stderr, `frpcmgrd — headless FRP client manager daemon
 
 USAGE
-  frpmgrd <command> [flags]
+  frpcmgrd <command> [flags]
 
 COMMANDS
   serve     Run the HTTP API server (default for containers)
@@ -77,7 +77,7 @@ func runServe(args []string) int {
 	}
 
 	logger := newLogger(cfg.LogLevel)
-	logger.Info("starting frpmgrd",
+	logger.Info("starting frpcmgrd",
 		slog.String("addr", cfg.HTTPAddr),
 		slog.String("data_dir", cfg.DataDir),
 		slog.String("version", version.Number),

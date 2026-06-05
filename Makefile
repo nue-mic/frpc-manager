@@ -19,11 +19,11 @@ web: web-install
 # Go 跨平台 (Linux/amd64) 构建 daemon —— 镜像里用这个
 # 自动先 build web，确保 dist 是最新的
 build: web
-	CGO_ENABLED=0 GOOS=linux go build -trimpath -ldflags "$(LDFLAGS)" -o bin/frpmgrd ./cmd/frpmgrd
+	CGO_ENABLED=0 GOOS=linux go build -trimpath -ldflags "$(LDFLAGS)" -o bin/frpcmgrd ./cmd/frpcmgrd
 
 # 本机平台构建（Windows/Mac/Linux 通用），用于本地开发跑 daemon
 build-host: web
-	CGO_ENABLED=0 go build -trimpath -ldflags "$(LDFLAGS)" -o bin/frpmgrd ./cmd/frpmgrd
+	CGO_ENABLED=0 go build -trimpath -ldflags "$(LDFLAGS)" -o bin/frpcmgrd ./cmd/frpcmgrd
 
 test:
 	go test ./...
@@ -47,4 +47,4 @@ docker:
 	  .
 
 run: build-host
-	FRPMGR_API_TOKEN=dev FRPMGR_DATA_DIR=./tmp/data ./bin/frpmgrd serve
+	FRPMGR_API_TOKEN=dev FRPMGR_DATA_DIR=./tmp/data ./bin/frpcmgrd serve

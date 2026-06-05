@@ -1,5 +1,5 @@
 // Package sysinfo wraps gopsutil to expose host / process metrics that
-// are useful when running frpmgrd inside a container. All functions are
+// are useful when running frpcmgrd inside a container. All functions are
 // safe to call from HTTP handlers.
 package sysinfo
 

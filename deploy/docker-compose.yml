@@ -8,7 +8,7 @@
 # ============================================================================
 
 services:
-  frpmgrd:
+  frpcmgrd:
     build:
       context: ..
       dockerfile: deploy/Dockerfile
@@ -16,7 +16,7 @@ services:
         VERSION: ${VERSION:-dev}
         BUILD_DATE: ${BUILD_DATE:-unknown}
     image: frpmgr-server:${VERSION:-dev}
-    container_name: frpmgrd
+    container_name: frpcmgrd
     restart: unless-stopped
     # host network is recommended for frpc so that xtcp / NAT hole
     # punching works correctly. Switch to bridge if you only need plain
@@ -30,7 +30,7 @@ services:
     volumes:
       - ./data:/data
     healthcheck:
-      test: ["CMD", "/usr/local/bin/frpmgrd", "health", "-addr", "http://127.0.0.1:${FRPMGR_HTTP_PORT:-8080}"]
+      test: ["CMD", "/usr/local/bin/frpcmgrd", "health", "-addr", "http://127.0.0.1:${FRPMGR_HTTP_PORT:-8080}"]
       interval: 30s
       timeout: 5s
       retries: 3

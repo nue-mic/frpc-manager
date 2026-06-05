@@ -1,6 +1,6 @@
 # E2E Tests
 
-基于 Playwright 的端到端测试，覆盖 frpmgrd UI 的关键回归 / 验证路径。
+基于 Playwright 的端到端测试，覆盖 frpcmgrd UI 的关键回归 / 验证路径。
 
 ## 前置
 
@@ -13,7 +13,7 @@ make build-host
 
 # 或手动
 cd web && npm run build
-cd .. && go build -o bin/frpmgrd-dev.exe ./cmd/frpmgrd
+cd .. && go build -o bin/frpcmgrd-dev.exe ./cmd/frpcmgrd
 ```
 
 ## 首次安装浏览器
@@ -41,7 +41,7 @@ npm run test:e2e -- 04-log-isolation.spec.ts
 ## 架构
 
 - 每个 spec 用 `fixtures/daemon.ts` 拿到独立 daemon fixture：
-  - 启独立 `frpmgrd-dev.exe` 子进程
+  - 启独立 `frpcmgrd-dev.exe` 子进程
   - 监听 `:18080 + workerIndex`（端口逐 worker 偏移）
   - 独立 `e2e-tmp/<workerN>-<rand>/` 数据目录
   - 子进程 stdout/stderr 落到 `daemon.log`
@@ -81,7 +81,7 @@ npm run test:e2e -- 04-log-isolation.spec.ts
 
 ## 已知约束
 
-- **必须先 build daemon** 才能跑 e2e（globalSetup 校验 `bin/frpmgrd-dev[.exe]` 存在）
+- **必须先 build daemon** 才能跑 e2e（globalSetup 校验 `bin/frpcmgrd-dev[.exe]` 存在）
 - **Windows 杀软**可能拦截 daemon 子进程启动；如出现 EPERM/ACCESS_DENIED 把 `bin/` 加入白名单
 - **场景 4-5** 依赖 frpc 日志隔离 feature 的代码（已合入 main / 此分支）
 
@@ -105,7 +105,7 @@ npm run test:e2e -- 04-log-isolation.spec.ts
 
 | 现象 | 原因 / 解决 |
 |---|---|
-| globalSetup 抛错 "frpmgrd binary not found" | 先 `make build-host` |
+| globalSetup 抛错 "frpcmgrd binary not found" | 先 `make build-host` |
 | Daemon 起不来（5s 超时） | 看 `e2e-tmp/<spec>/daemon.log` 末尾，可能 18080 端口被占 / 杀软拦截 / token env 配错 |
 | 选择器找不到（Locator not found） | 用 `npm run test:e2e:ui` 实地探测 + 改 `selectors.ts` |
 | 场景 4/5 失败 | 确认当前分支已合 `feature/frpc-logs-isolation`（`logs/frpc.log` 存在而非 per-id `.log`） |

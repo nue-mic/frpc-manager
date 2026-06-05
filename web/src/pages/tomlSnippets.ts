@@ -107,7 +107,7 @@ owner     = "alice"
 [frpmgr]
 # 实例显示名（左侧配置列表展示）
 name        = "杭州办公网"
-# true=随 frpmgrd 服务启动；false=只有手动点启动才跑
+# true=随 frpcmgrd 服务启动；false=只有手动点启动才跑
 manualStart = false
 
 # 自动删除：在某个时间点或运行多久后，自动停掉并删除这个实例（应急临时配置）
@@ -211,11 +211,11 @@ disablePrintColor = false
       {
         key: 'webServer',
         title: '[webServer] 管理 HTTP 接口',
-        hint: 'frpc 自带的管理 API（不是 frpmgrd 的）；可远程触发 reload / status。',
+        hint: 'frpc 自带的管理 API（不是 frpcmgrd 的）；可远程触发 reload / status。',
         toml: `# ===========================================================
 # [webServer] — frpc 自己的管理 HTTP 接口
 # 用 curl http://addr:port/api/reload 可让 frpc 热重载 toml
-# 与 frpmgrd HTTP API 不冲突
+# 与 frpcmgrd HTTP API 不冲突
 # ===========================================================
 
 [webServer]

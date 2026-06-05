@@ -1,6 +1,6 @@
 #!/bin/sh
 # =============================================================================
-# frpmgrd 一键安装脚本 (frpc-manager)
+# frpcmgrd 一键安装脚本 (frpc-manager)
 #
 #   支持: macOS / 各类 Linux (systemd / OpenRC / 通用回退)
 #   下载: 自动选择 curl 或 wget
@@ -25,9 +25,9 @@ set -eu
 # 常量配置
 # ----------------------------------------------------------------------------
 REPO="mia-clark/frpc-manager"
-BIN_NAME="frpmgrd"
+BIN_NAME="frpcmgrd"
 INSTALL_DIR="/usr/local/bin"
-SERVICE_NAME="frpmgrd"
+SERVICE_NAME="frpcmgrd"
 DEFAULT_PORT="8080"
 
 # 这些值会在 detect_platform / 参数解析阶段被填充
@@ -67,7 +67,7 @@ trap cleanup EXIT INT TERM
 # ----------------------------------------------------------------------------
 usage() {
     cat <<EOF
-${C_BOLD}frpmgrd 一键安装脚本${C_RST}
+${C_BOLD}frpcmgrd 一键安装脚本${C_RST}
 
 用法: sh install.sh [选项]
 
@@ -390,9 +390,9 @@ write_env_file() {
     priv mkdir -p "$(dirname "$ENV_FILE")"
     priv mkdir -p "$DATA_DIR"
     # 通过临时文件再 install, 避免重定向到特权路径的麻烦
-    _tmp_env="${TMP_DIR}/frpmgrd.env"
+    _tmp_env="${TMP_DIR}/frpcmgrd.env"
     cat > "$_tmp_env" <<EOF
-# frpmgrd 运行配置 (由 install.sh 生成)
+# frpcmgrd 运行配置 (由 install.sh 生成)
 FRPMGR_API_TOKEN=${TOKEN}
 FRPMGR_HTTP_ADDR=:${PORT}
 FRPMGR_DATA_DIR=${DATA_DIR}
@@ -425,7 +425,7 @@ setup_systemd() {
     _tmp_unit="${TMP_DIR}/${SERVICE_NAME}.service"
     cat > "$_tmp_unit" <<EOF
 [Unit]
-Description=frpmgrd - FRP Manager Server
+Description=frpcmgrd - FRP Manager Server
 Documentation=https://github.com/${REPO}
 After=network-online.target
 Wants=network-online.target
@@ -459,7 +459,7 @@ setup_openrc() {
     cat > "$_tmp_init" <<EOF
 #!/sbin/openrc-run
 name="${SERVICE_NAME}"
-description="frpmgrd - FRP Manager Server"
+description="frpcmgrd - FRP Manager Server"
 command="${INSTALL_DIR}/${BIN_NAME}"
 command_args="serve"
 command_background=true
@@ -558,7 +558,7 @@ install_cli() {
     cat > "$_tmp_cli" <<EOF
 #!/bin/sh
 # =============================================================================
-# fmc — frpmgrd 管理命令 (由 install.sh 自动生成, 请勿手动编辑)
+# fmc — frpcmgrd 管理命令 (由 install.sh 自动生成, 请勿手动编辑)
 #   用法: fmc <命令> [参数]   (fmc help 查看全部命令)
 # =============================================================================
 REPO="${REPO}"
@@ -718,7 +718,7 @@ cmd_info() {
                  _logc="tail -f /var/log/${SERVICE_NAME}.log" ;;
         *)       _svc="(未注册)"; _state="unknown"; _logc="(无)" ;;
     esac
-    printf "%b\n" "${C_BOLD}frpmgrd 运行信息${C_RST}"
+    printf "%b\n" "${C_BOLD}frpcmgrd 运行信息${C_RST}"
     printf "%b\n" "────────────────────────────────────────────"
     printf "  版本     : %s\n" "$_ver"
     printf "  服务状态 : %s\n" "$_state"
@@ -754,7 +754,7 @@ cmd_uninstall() {
 }
 
 usage() {
-    printf "%b\n" "${C_BOLD}fmc — frpmgrd 管理命令${C_RST}
+    printf "%b\n" "${C_BOLD}fmc — frpcmgrd 管理命令${C_RST}
 
 用法: fmc <命令> [参数]
 
@@ -903,7 +903,7 @@ health_check() {
 # 安装总流程
 # ----------------------------------------------------------------------------
 do_install() {
-    printf "%b\n" "${C_BOLD}=== frpmgrd 一键安装 ===${C_RST}"
+    printf "%b\n" "${C_BOLD}=== frpcmgrd 一键安装 ===${C_RST}"
     detect_platform
     detect_downloader
     ensure_root
@@ -954,7 +954,7 @@ print_summary() {
 # 全自动更新流程 (保留现有端口/令牌/数据, 仅替换二进制并重启服务)
 # ----------------------------------------------------------------------------
 do_update() {
-    printf "%b\n" "${C_BOLD}=== frpmgrd 全自动更新 ===${C_RST}"
+    printf "%b\n" "${C_BOLD}=== frpcmgrd 全自动更新 ===${C_RST}"
     detect_platform
     detect_downloader
     ensure_root
@@ -998,7 +998,7 @@ do_update() {
 # 卸载流程
 # ----------------------------------------------------------------------------
 do_uninstall() {
-    printf "%b\n" "${C_BOLD}=== frpmgrd 卸载 ===${C_RST}"
+    printf "%b\n" "${C_BOLD}=== frpcmgrd 卸载 ===${C_RST}"
     detect_platform
     ensure_root
 

@@ -27,7 +27,7 @@ type Fixtures = {
  *
  * 每个 worker 启动时:
  *   1. 创建独立 TempDir
- *   2. 起一个 frpmgrd 子进程, 监听 :18080+workerIndex
+ *   2. 起一个 frpcmgrd 子进程, 监听 :18080+workerIndex
  *   3. 轮询 GET /api/v1/version 直到 200 (max 5s)
  *   4. 测试运行
  *   5. 结束时 kill daemon, 全绿就删 TempDir, 否则保留

@@ -1,9 +1,9 @@
 ﻿#Requires -Version 5.1
 # =============================================================================
-# frpmgrd 一键安装脚本 (frpc-manager) — Windows / PowerShell 版
+# frpcmgrd 一键安装脚本 (frpc-manager) — Windows / PowerShell 版
 #
 #   支持: Windows 10/11 / Windows Server (amd64 / arm64)
-#   服务: 通过 NSSM 将 frpmgrd.exe 包装为真正的 Windows 服务 (可在 services.msc 管理)
+#   服务: 通过 NSSM 将 frpcmgrd.exe 包装为真正的 Windows 服务 (可在 services.msc 管理)
 #   功能: 自动识别架构 -> 下载二进制 -> 安装 -> 注册服务 -> 开机自启 -> 健康检查
 #
 # 一行安装 (推荐, 管理员 PowerShell 中执行):
@@ -36,13 +36,13 @@ $ErrorActionPreference = 'Stop'
 # 常量配置
 # ----------------------------------------------------------------------------
 $Repo         = 'mia-clark/frpc-manager'
-$BinName      = 'frpmgrd.exe'
-$ServiceName  = 'frpmgrd'
-$DisplayName  = 'frpmgrd - FRP Manager Server'
+$BinName      = 'frpcmgrd.exe'
+$ServiceName  = 'frpcmgrd'
+$DisplayName  = 'frpcmgrd - FRP Manager Server'
 $DefaultPort  = '8080'
-$InstallDir   = Join-Path $env:ProgramFiles 'frpmgrd'        # 二进制 + nssm.exe
-$DataDir      = Join-Path $env:ProgramData  'frpmgrd\data'   # 运行数据
-$LogDir       = Join-Path $env:ProgramData  'frpmgrd\logs'   # 服务日志
+$InstallDir   = Join-Path $env:ProgramFiles 'frpcmgrd'        # 二进制 + nssm.exe
+$DataDir      = Join-Path $env:ProgramData  'frpcmgrd\data'   # 运行数据
+$LogDir       = Join-Path $env:ProgramData  'frpcmgrd\logs'   # 服务日志
 $NssmVersion  = '2.24'
 $NssmZipUrl   = "https://nssm.cc/release/nssm-$NssmVersion.zip"
 
@@ -75,7 +75,7 @@ function Cleanup {
 # ----------------------------------------------------------------------------
 function Show-Usage {
     Write-Host @"
-frpmgrd 一键安装脚本 (Windows)
+frpcmgrd 一键安装脚本 (Windows)
 
 用法: powershell -ExecutionPolicy Bypass -File install.ps1 [选项]
 
@@ -207,7 +207,7 @@ function Test-Port {
 # ----------------------------------------------------------------------------
 function Get-RemoteFile {
     param([string]$Url, [string]$Dest)
-    Invoke-WebRequest -Uri $Url -OutFile $Dest -UseBasicParsing -Headers @{ 'User-Agent' = 'frpmgrd-installer' }
+    Invoke-WebRequest -Uri $Url -OutFile $Dest -UseBasicParsing -Headers @{ 'User-Agent' = 'frpcmgrd-installer' }
 }
 
 # ----------------------------------------------------------------------------
@@ -222,7 +222,7 @@ function Resolve-Version {
     Write-Info '正在查询最新版本...'
     try {
         $rel = Invoke-RestMethod -Uri "https://api.github.com/repos/$Repo/releases/latest" `
-            -Headers @{ 'User-Agent' = 'frpmgrd-installer' } -UseBasicParsing
+            -Headers @{ 'User-Agent' = 'frpcmgrd-installer' } -UseBasicParsing
         $script:Version = $rel.tag_name
     } catch {
         Die '无法获取最新版本, 请用 -Version 手动指定 (如 -Version v1.2.14)'
@@ -289,11 +289,11 @@ function Confirm-Install {
 }
 
 # ----------------------------------------------------------------------------
-# 下载并安装 frpmgrd 二进制
+# 下载并安装 frpcmgrd 二进制
 # ----------------------------------------------------------------------------
 function Install-Binary {
     $verNum = $script:Version.TrimStart('v')
-    $asset  = "frpmgrd_${verNum}_windows_$($script:Arch).zip"
+    $asset  = "frpcmgrd_${verNum}_windows_$($script:Arch).zip"
     $url    = "https://github.com/$Repo/releases/download/$($script:Version)/$asset"
 
     $script:TmpDir = Join-Path $env:TEMP ("frpmgr_" + [Guid]::NewGuid().ToString('N'))
@@ -373,7 +373,7 @@ function Register-FrpmgrService {
 
     & $script:NssmPath install $ServiceName $script:BinPath serve | Out-Null
     & $script:NssmPath set $ServiceName DisplayName  $DisplayName | Out-Null
-    & $script:NssmPath set $ServiceName Description   "frpmgrd - headless FRP client manager daemon" | Out-Null
+    & $script:NssmPath set $ServiceName Description   "frpcmgrd - headless FRP client manager daemon" | Out-Null
     & $script:NssmPath set $ServiceName AppDirectory  $InstallDir | Out-Null
     & $script:NssmPath set $ServiceName Start         'SERVICE_AUTO_START' | Out-Null
 
@@ -389,8 +389,8 @@ function Register-FrpmgrService {
     & $script:NssmPath set $ServiceName AppEnvironmentExtra @envPairs | Out-Null
 
     # 日志与崩溃自动重启
-    & $script:NssmPath set $ServiceName AppStdout   (Join-Path $LogDir 'frpmgrd.log') | Out-Null
-    & $script:NssmPath set $ServiceName AppStderr   (Join-Path $LogDir 'frpmgrd.log') | Out-Null
+    & $script:NssmPath set $ServiceName AppStdout   (Join-Path $LogDir 'frpcmgrd.log') | Out-Null
+    & $script:NssmPath set $ServiceName AppStderr   (Join-Path $LogDir 'frpcmgrd.log') | Out-Null
     & $script:NssmPath set $ServiceName AppRotateFiles 1 | Out-Null
     & $script:NssmPath set $ServiceName AppRotateBytes 10485760 | Out-Null
     & $script:NssmPath set $ServiceName AppExit Default Restart | Out-Null
@@ -412,7 +412,7 @@ function Install-Cli {
 
     # 头部: 注入安装期常量 (可展开 here-string; 用反引号转义运行期 $ 以保留字面量)
     $head = @"
-# fmc.ps1 — frpmgrd 管理命令 (由 install.ps1 自动生成, 请勿手动编辑)
+# fmc.ps1 — frpcmgrd 管理命令 (由 install.ps1 自动生成, 请勿手动编辑)
 `$ServiceName = '$ServiceName'
 `$InstallDir  = '$InstallDir'
 `$BinName     = '$BinName'
@@ -428,7 +428,7 @@ try { [Console]::OutputEncoding = [Text.Encoding]::UTF8 } catch { }
 
 $BinPath  = Join-Path $InstallDir $BinName
 $NssmPath = Join-Path $InstallDir 'nssm.exe'
-$LogFile  = Join-Path $LogDir 'frpmgrd.log'
+$LogFile  = Join-Path $LogDir 'frpcmgrd.log'
 $RawUrl   = "https://raw.githubusercontent.com/$Repo/main/scripts/install.ps1"
 # 允许用镜像源覆盖 install.ps1 下载地址 (适配国内网络)
 if ($env:FRPMGR_INSTALL_URL) { $RawUrl = $env:FRPMGR_INSTALL_URL }
@@ -497,7 +497,7 @@ function Do-Info {
     if (Test-Path $BinPath) { $ver = ((& $BinPath version 2>$null) -join ' ') }
     $svc = Get-Service -Name $ServiceName -ErrorAction SilentlyContinue
     $state = if ($svc) { "$($svc.Status)" } else { '未安装' }
-    Write-Host 'frpmgrd 运行信息'
+    Write-Host 'frpcmgrd 运行信息'
     Write-Host '────────────────────────────────────────────'
     Write-Host ("  版本     : {0}" -f $ver)
     Write-Host ("  服务状态 : {0}" -f $state)
@@ -524,13 +524,13 @@ function Do-Version { & $BinPath version }
 function Invoke-Installer([object[]]$extra) {
     Need-Admin
     $tmp = Join-Path $env:TEMP ("frpmgr_install_" + [Guid]::NewGuid().ToString('N') + ".ps1")
-    Invoke-WebRequest -Uri $RawUrl -OutFile $tmp -UseBasicParsing -Headers @{ 'User-Agent' = 'frpmgrd-installer' }
+    Invoke-WebRequest -Uri $RawUrl -OutFile $tmp -UseBasicParsing -Headers @{ 'User-Agent' = 'frpcmgrd-installer' }
     try { & powershell -NoProfile -ExecutionPolicy Bypass -File $tmp @extra }
     finally { Remove-Item -Force $tmp -ErrorAction SilentlyContinue }
 }
 function Show-Usage {
     Write-Host @"
-fmc — frpmgrd 管理命令
+fmc — frpcmgrd 管理命令
 
 用法: fmc <命令> [参数]
 
@@ -639,7 +639,7 @@ function Restart-FrpmgrService {
 function Get-InstalledVersion {
     if (Test-Path $script:BinPath) {
         $out = & $script:BinPath version 2>$null
-        if ($out -match 'frpmgrd\s+(\S+)') { return $Matches[1] }
+        if ($out -match 'frpcmgrd\s+(\S+)') { return $Matches[1] }
     }
     return ''
 }
@@ -664,7 +664,7 @@ function Invoke-HealthCheck {
 # 安装总流程
 # ----------------------------------------------------------------------------
 function Invoke-Install {
-    Write-Host '=== frpmgrd 一键安装 (Windows) ===' -ForegroundColor White
+    Write-Host '=== frpcmgrd 一键安装 (Windows) ===' -ForegroundColor White
     Get-Platform
     Resolve-Version
     Resolve-Port
@@ -718,11 +718,11 @@ function Write-Summary {
 # 全自动更新流程 (保留现有端口/令牌/数据, 仅替换二进制并重启)
 # ----------------------------------------------------------------------------
 function Invoke-Update {
-    Write-Host '=== frpmgrd 全自动更新 (Windows) ===' -ForegroundColor White
+    Write-Host '=== frpcmgrd 全自动更新 (Windows) ===' -ForegroundColor White
     Get-Platform
 
     if (-not (Test-Path $script:BinPath)) {
-        Die "未检测到已安装的 frpmgrd ($($script:BinPath))。请先执行安装, 而非更新。"
+        Die "未检测到已安装的 frpcmgrd ($($script:BinPath))。请先执行安装, 而非更新。"
     }
 
     $cur = Get-InstalledVersion
@@ -762,7 +762,7 @@ function Invoke-Update {
 # 卸载流程
 # ----------------------------------------------------------------------------
 function Invoke-Uninstall {
-    Write-Host '=== frpmgrd 卸载 (Windows) ===' -ForegroundColor White
+    Write-Host '=== frpcmgrd 卸载 (Windows) ===' -ForegroundColor White
 
     if (Test-Path $script:NssmPath) {
         if (Test-Service) {

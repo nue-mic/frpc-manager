@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # End-to-end test for the AutoStart-via-manualStart refactor.
 #
-# Spins up an isolated frpmgrd on an alt port + data dir, exercises every
+# Spins up an isolated frpcmgrd on an alt port + data dir, exercises every
 # behavioral change in the recent fix, and asserts on daemon logs + API
 # responses. Does not touch the running dev environment.
 
@@ -10,7 +10,7 @@ set -uo pipefail
 PORT=${TEST_PORT:-18080}
 TOKEN=${TEST_TOKEN:-e2etest}
 DATA=${TEST_DATA:-tmp/test-autostart}
-BIN=${TEST_BIN:-./frpmgrd-dev.exe}
+BIN=${TEST_BIN:-./frpcmgrd-dev.exe}
 BASE="http://127.0.0.1:${PORT}"
 PASS=0
 FAIL=0

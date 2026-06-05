@@ -1,7 +1,7 @@
 # frpmgr WebUI
 
 基于 **Vite + React 19 + TypeScript + Ant Design v6** 的 frp-manager 控制台。
-最终产物会被 `web/web.go` 通过 `go:embed dist` 嵌入到 `frpmgrd` 二进制中，与守护进程一起分发。
+最终产物会被 `web/web.go` 通过 `go:embed dist` 嵌入到 `frpcmgrd` 二进制中，与守护进程一起分发。
 
 ## 功能矩阵
 
@@ -38,7 +38,7 @@
 ```bash
 cd web
 npm install --legacy-peer-deps
-npm run dev          # http://localhost:5173，开发期 Vite 代理转发到本地 frpmgrd
+npm run dev          # http://localhost:5173，开发期 Vite 代理转发到本地 frpcmgrd
 npm run gen:api      # 根据 ../internal/api/openapi.yaml 重新生成 src/api/schema.d.ts
 ```
 
@@ -51,8 +51,8 @@ npm run gen:api      # 根据 ../internal/api/openapi.yaml 重新生成 src/api/
 cd web
 npm run build        # 产出 dist/，被 web/web.go 的 //go:embed dist 吸收
 cd ..
-go build -o frpmgrd ./cmd/frpmgrd
-./frpmgrd serve --addr :8080 --data-dir ./data
+go build -o frpcmgrd ./cmd/frpcmgrd
+./frpcmgrd serve --addr :8080 --data-dir ./data
 # 浏览器访问 http://localhost:8080 即可看到嵌入的控制台
 ```
 

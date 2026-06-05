@@ -1,6 +1,6 @@
-# frpmgrd API 详细参考（中文 · v1）
+# frpcmgrd API 详细参考（中文 · v1）
 
-> 本文件基于 [`internal/api`](../internal/api/) 与 [`internal/manager/instance.go`](../internal/manager/instance.go) 实地核对生成，并使用 dev 守护进程 `./frpmgrd-dev.exe serve` 真实探测过每条路径。
+> 本文件基于 [`internal/api`](../internal/api/) 与 [`internal/manager/instance.go`](../internal/manager/instance.go) 实地核对生成，并使用 dev 守护进程 `./frpcmgrd-dev.exe serve` 真实探测过每条路径。
 > 凡是与 [`internal/api/openapi.yaml`](../internal/api/openapi.yaml) 不一致之处，请以本文档为准（OpenAPI 描述了路径但 **没有** 描述请求/响应体的字段，本文档把它补齐）。
 
 ---
@@ -68,7 +68,7 @@
 
 | 字段 | 类型 | 说明 |
 |---|---|---|
-| `daemon` | string | `frpmgrd` 版本号（例 `"dev"`） |
+| `daemon` | string | `frpcmgrd` 版本号（例 `"dev"`） |
 | `frp` | string | 内嵌的 frp 版本（例 `"0.69.1"`） |
 | `build_date` | string | 构建时间，未注入时为 `"unknown"` |
 
@@ -742,7 +742,7 @@ func (c *TypedProxyConfig) MarshalJSON() ([]byte, error) {
 
 ---
 
-## 11. 真实抓包样例（探测自 `frpmgrd-dev.exe` v0.69.1）
+## 11. 真实抓包样例（探测自 `frpcmgrd-dev.exe` v0.69.1）
 
 ```text
 POST /api/v1/configs                        201

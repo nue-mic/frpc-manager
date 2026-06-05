@@ -1,6 +1,6 @@
 # frpmgr-server — 部署与使用
 
-`frpmgrd` 是 Linux 优先、Docker 友好的 FRP 客户端守护进程,通过完整的 REST + WebSocket API 管理多个 frpc 实例。原 Windows GUI 版本的 70% 业务能力(配置 CRUD、热重载、状态跟踪、日志查看、导入导出、自毁配置)以 API 形式提供。
+`frpcmgrd` 是 Linux 优先、Docker 友好的 FRP 客户端守护进程,通过完整的 REST + WebSocket API 管理多个 frpc 实例。原 Windows GUI 版本的 70% 业务能力(配置 CRUD、热重载、状态跟踪、日志查看、导入导出、自毁配置)以 API 形式提供。
 
 ## 快速开始 (docker compose)
 
@@ -11,7 +11,7 @@ cp .env.example .env
 openssl rand -hex 32  # 复制结果填进 .env
 
 docker compose up -d --build
-docker compose logs -f frpmgrd
+docker compose logs -f frpcmgrd
 ```
 
 健康检查:
@@ -163,7 +163,7 @@ curl -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
 }
 ```
 
-> daemon 重启行为：所有 `manualStart != true` 的实例都会在 `frpmgrd serve` 启动时被自动拉起；想要某实例随 daemon 启停"持久关闭"，把 `manualStart` 置为 `true` 后保存即可。启动顺序遵循 `meta.json` 的 `sort` 列表。
+> daemon 重启行为：所有 `manualStart != true` 的实例都会在 `frpcmgrd serve` 启动时被自动拉起；想要某实例随 daemon 启停"持久关闭"，把 `manualStart` 置为 `true` 后保存即可。启动顺序遵循 `meta.json` 的 `sort` 列表。
 
 
 ## 流量与连接数指标(重要)
@@ -210,4 +210,4 @@ make build
 - **401 unauthorized**: 检查 `FRPMGR_API_TOKEN` 是否对齐
 - **404 在 WS 时**: 路径必须是 `/api/v1/events`,token 走 `?token=` 或 Authorization header
 - **start 立即返回成功但 proxy.status 不上来**: 看 `/api/v1/configs/{id}/logs/tail`,通常是 frps 端连不上 / token 错
-- **容器健康检查失败**: `docker compose exec frpmgrd frpmgrd health`
+- **容器健康检查失败**: `docker compose exec frpcmgrd frpcmgrd health`

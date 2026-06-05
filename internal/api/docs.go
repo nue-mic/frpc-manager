@@ -25,7 +25,7 @@ const docsHTML = `<!doctype html>
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>frpmgrd API</title>
+  <title>frpcmgrd API</title>
   <link rel="icon" href="data:," />
   <style>
     body { margin: 0; }

@@ -1,5 +1,5 @@
 #!/bin/sh
-# frpmgrd container entrypoint.
+# frpcmgrd container entrypoint.
 #
 # Runs as root just long enough to make sure /data is owned by the
 # non-root runtime user (UID 65532), then re-execs the daemon as that
@@ -27,7 +27,7 @@ esac
 # If we're already non-root (e.g. user overrode `user:` in compose),
 # just exec directly.
 if [ "$(id -u)" != "0" ]; then
-    exec /usr/local/bin/frpmgrd "$@"
+    exec /usr/local/bin/frpcmgrd "$@"
 fi
 
-exec su-exec "${RUN_UID}:${RUN_GID}" /usr/local/bin/frpmgrd "$@"
+exec su-exec "${RUN_UID}:${RUN_GID}" /usr/local/bin/frpcmgrd "$@"

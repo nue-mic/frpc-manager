@@ -9,7 +9,7 @@
 
 一个 **无头（headless）的 FRP 客户端管理器**：把繁琐的 `frpc.toml` 手写 + `systemctl` 手动管理，变成「装上守护进程 → 打开网页 → 点鼠标增删改启停隧道」。
 
-- 后端：Go 守护进程 `frpmgrd`，**内嵌** frp 客户端（`github.com/fatedier/frp`，当前 v0.69.1），对外暴露 HTTP API + WebSocket。
+- 后端：Go 守护进程 `frpcmgrd`，**内嵌** frp 客户端（`github.com/fatedier/frp`，当前 v0.69.1），对外暴露 HTTP API + WebSocket。
 - 前端：React + TypeScript + Vite + Ant Design 单页应用，构建产物 `web/dist` 通过 `//go:embed` **嵌进 Go 二进制**，生产环境同域。
 - 单二进制交付，自带 systemd/OpenRC/launchd/Windows 服务安装脚本。
 
@@ -24,7 +24,7 @@
 ## 3. 架构与目录
 
 ```
-cmd/frpmgrd/main.go      # 入口：子命令 serve / health / version
+cmd/frpcmgrd/main.go      # 入口：子命令 serve / health / version
 internal/
   api/                   # HTTP 层：server.go 路由 + 各 *.go handler + openapi.yaml
   manager/               # 核心：frpc 实例生命周期、配置加载、自启动、快照
@@ -47,7 +47,7 @@ docs/API.zh-CN.md        # 完整 API 字段表（前后端对接的权威参考
 ## 4. 常用命令（根目录 Makefile）
 
 ```bash
-make build-host   # 本机平台构建 daemon（会先构建前端 dist 再 go build）→ bin/frpmgrd
+make build-host   # 本机平台构建 daemon（会先构建前端 dist 再 go build）→ bin/frpcmgrd
 make build        # Linux/amd64 构建（发布/镜像用）
 make web          # 仅构建前端 dist
 make test         # go test ./...
@@ -93,12 +93,12 @@ make docker       # 多阶段镜像（自带 node+go，无需本地依赖）
 | `FRPMGR_LOG_LEVEL` | `info` | trace/debug/info/warn/error |
 | `FRPMGR_DOCS_ENABLED` | `true` | 是否开放 `/api/docs` |
 
-安装后配置落在 `/etc/frpmgrd/frpmgrd.env`（Linux）；数据目录默认 `/var/lib/frpmgrd`。
+安装后配置落在 `/etc/frpcmgrd/frpcmgrd.env`（Linux）；数据目录默认 `/var/lib/frpcmgrd`。
 
 ## 8. 版本与发布
 
 - 版本号在**构建期由 `-ldflags` 注入** [pkg/version](pkg/version)，不要在源码里硬编码。
-- 内嵌的 frp 版本也记录在 `pkg/version`（`frpmgrd version` 会一并打印）。
+- 内嵌的 frp 版本也记录在 `pkg/version`（`frpcmgrd version` 会一并打印）。
 - 发布走 CI（`.github/workflows/release.yml`），release 提交形如 `chore(release): vX.Y.Z [skip ci]`。
 - 运维统一用安装脚本生成的 **`fmc` 命令**：`fmc start/stop/restart/status/logs -f/url/update/uninstall`（自动适配 systemd/OpenRC/launchd/Windows 服务）。改动 `install.sh`/`install.ps1` 只对新装或下次 `fmc update` 生效。
 
