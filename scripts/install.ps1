@@ -27,8 +27,12 @@ param(
     [Alias('u')][switch]$Update,
     [Alias('f')][switch]$Force,
     [switch]$Uninstall,
+    [string]$Proxy   = $env:FRPCMGR_DOWNLOAD_PROXY,
+    [switch]$NoProxy,
     [Alias('h')][switch]$Help
 )
+
+if (-not $NoProxy -and $env:FRPCMGR_NO_PROXY -eq '1') { $NoProxy = $true }
 
 $ErrorActionPreference = 'Stop'
 
@@ -45,6 +49,22 @@ $DataDir      = Join-Path $env:ProgramData  'frpcmgrd\data'   # 运行数据
 $LogDir       = Join-Path $env:ProgramData  'frpcmgrd\logs'   # 服务日志
 $NssmVersion  = '2.24'
 $NssmZipUrl   = "https://nssm.cc/release/nssm-$NssmVersion.zip"
+
+# GitHub release 下载代理候选 (按用户指定顺序: 公开 4 家在前, 自建 6 家在后)
+#   URL 拼装: "$proxy$githubUrl"; 安装时遍历, 第一个能下载并通过 Expand-Archive
+#   验证的就用; 全部代理失败回落直连。详见 docs/superpowers/specs/2026-06-05-install-mirror-fallback-design.md
+$DlProxies = @(
+    'https://gh-proxy.com/',
+    'https://ghfast.top/',
+    'https://github.tbedu.top/',
+    'https://gh.idayer.com/',
+    'https://docker.srv1.qzz.io/',
+    'https://dk-proxy.srv1.qzz.io/',
+    'https://dk-proxy.966788.xyz/',
+    'https://dk-proxy.srv0.qzz.io/',
+    'https://docker.srv0.qzz.io/',
+    'https://docker.966788.xyz/'
+)
 
 # 运行期填充
 $script:Arch        = ''
@@ -87,6 +107,8 @@ frpcmgrd 一键安装脚本 (Windows)
   -Update          全自动更新到最新版 (保留现有端口/令牌/数据, 仅换二进制并重启)
   -Force           配合 -Update: 即使已是最新版也强制重装
   -Uninstall       卸载 (停止/删除服务 + 删除二进制)
+  -Proxy <URL>     指定单一下载代理 (如 https://my.mirror/), 跳过内置数组
+  -NoProxy         跳过所有代理, 直连 GitHub 下载
   -Help            显示帮助
 
 示例:
@@ -98,6 +120,11 @@ frpcmgrd 一键安装脚本 (Windows)
   install.ps1 -Update                      # 全自动更新到最新版
   install.ps1 -Update -Force               # 强制重装当前最新版
   install.ps1 -Uninstall                   # 卸载
+  install.ps1 -NoProxy                     # 跳过代理直连 GitHub
+
+下载策略:
+  默认按内置代理数组挨个尝试 (公开代理 4 家在前, 自建 6 家在后), 第一个能
+  下载并解开为合法 zip 的就用; 全部代理失败回落直连 GitHub。
 "@
 }
 
@@ -207,7 +234,57 @@ function Test-Port {
 # ----------------------------------------------------------------------------
 function Get-RemoteFile {
     param([string]$Url, [string]$Dest)
-    Invoke-WebRequest -Uri $Url -OutFile $Dest -UseBasicParsing -Headers @{ 'User-Agent' = 'frpcmgrd-installer' }
+    Invoke-WebRequest -Uri $Url -OutFile $Dest -UseBasicParsing `
+        -Headers @{ 'User-Agent' = 'frpcmgrd-installer' } -TimeoutSec 30
+}
+
+# 验证下载文件是合法 zip (防"伪 200": 代理返回 HTML 错误页但 HTTP 200)
+# 用 Expand-Archive 试解到临时目录, 成功 = 真包; 失败 = 伪 200
+function Test-Zip {
+    param([string]$Path)
+    if (-not (Test-Path $Path) -or (Get-Item $Path).Length -eq 0) { return $false }
+    $probe = Join-Path $env:TEMP ("zipprobe_" + [Guid]::NewGuid().ToString('N'))
+    try {
+        Expand-Archive -Path $Path -DestinationPath $probe -Force -ErrorAction Stop
+        return $true
+    } catch {
+        return $false
+    } finally {
+        if (Test-Path $probe) { Remove-Item -Recurse -Force $probe -ErrorAction SilentlyContinue }
+    }
+}
+
+# 智能代理下载: 遍历 $DlProxies, 第一个成功+合法的就用; 全失败回落直连
+# 优先级: -Proxy/$env:FRPCMGR_DOWNLOAD_PROXY > 内置数组 > 直连
+function Invoke-Download {
+    param([string]$GhUrl, [string]$Dest)
+
+    if ($Proxy) {
+        $p = $Proxy.TrimEnd('/') + '/'
+        Write-Info "使用指定代理: $p"
+        try { Get-RemoteFile -Url ($p + $GhUrl) -Dest $Dest } catch { }
+        if (Test-Zip $Dest) { return $true }
+        Write-Warn '指定代理失败/返回非法包, 回落直连'
+        Remove-Item -Force $Dest -ErrorAction SilentlyContinue
+    } elseif (-not $NoProxy) {
+        foreach ($p in $DlProxies) {
+            Write-Info "尝试代理: $p"
+            try { Get-RemoteFile -Url ($p + $GhUrl) -Dest $Dest } catch { Remove-Item -Force $Dest -ErrorAction SilentlyContinue; continue }
+            if (Test-Zip $Dest) {
+                Write-Ok "下载源: $p"
+                return $true
+            }
+            Write-Warn '  -> 返回非法包 (伪 200?), 跳下一家'
+            Remove-Item -Force $Dest -ErrorAction SilentlyContinue
+        }
+        Write-Warn '全部代理失败, 回落直连 GitHub'
+    }
+
+    # 直连兜底
+    Write-Info "直连: $GhUrl"
+    try { Get-RemoteFile -Url $GhUrl -Dest $Dest } catch { return $false }
+    if (-not (Test-Zip $Dest)) { Write-Err '直连下载的文件也不是合法 zip'; return $false }
+    return $true
 }
 
 # ----------------------------------------------------------------------------
@@ -300,8 +377,10 @@ function Install-Binary {
     New-Item -ItemType Directory -Force -Path $script:TmpDir | Out-Null
 
     $zipPath = Join-Path $script:TmpDir $asset
-    Write-Info "下载: $url"
-    try { Get-RemoteFile -Url $url -Dest $zipPath } catch { Die "下载失败, 请检查网络或版本号: $_" }
+    Write-Info "目标: $url"
+    if (-not (Invoke-Download -GhUrl $url -Dest $zipPath)) {
+        Die '全部下载途径失败 (代理 + 直连), 请检查网络或版本号'
+    }
 
     Write-Info '解压安装包...'
     $extractDir = Join-Path $script:TmpDir 'extract'

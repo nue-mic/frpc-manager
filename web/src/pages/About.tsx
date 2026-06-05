@@ -374,6 +374,20 @@ FRPCMGR_API_TOKEN=$(openssl rand -hex 32) ./frpcmgrd serve`;
         message="一键安装支持 Linux / macOS / FreeBSD / Windows，自动识别系统、CPU 架构，安装并注册成系统服务（systemd / OpenRC / launchd / Windows 服务）。"
         style={{ marginBottom: 16 }}
       />
+      <Alert
+        type="success"
+        showIcon
+        message="智能下载（无需手动配代理）"
+        description={
+          <span style={{ fontSize: 12.5 }}>
+            脚本内置 10 家 GitHub release 代理（公开 4 + 自建 6），下载二进制时按优先级挨个尝试，
+            第一个能完整下载并通过 <Text code>tar -tzf</Text> / <Text code>Expand-Archive</Text> 校验的就用；
+            全部代理失败才回落直连。需要强制指定时：<Text code>--proxy https://my.mirror/</Text> 或环境变量 <Text code>FRPCMGR_DOWNLOAD_PROXY</Text>；
+            跳过代理：<Text code>--no-proxy</Text> / <Text code>FRPCMGR_NO_PROXY=1</Text>。
+          </span>
+        }
+        style={{ marginBottom: 16 }}
+      />
 
       <SectionTitle icon={<RocketOutlined />}>一键安装（国内镜像加速 · 推荐）</SectionTitle>
       <Paragraph type="secondary" style={{ marginBottom: 8, fontSize: 12.5 }}>

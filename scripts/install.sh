@@ -30,6 +30,25 @@ INSTALL_DIR="/usr/local/bin"
 SERVICE_NAME="frpcmgrd"
 DEFAULT_PORT="8080"
 
+# ----------------------------------------------------------------------------
+# GitHub release 下载代理候选 (按用户指定顺序: 公开4家在前, 自建6家在后)
+#   - URL 拼装格式: ${PROXY}https://github.com/USER/REPO/releases/download/...
+#   - 安装时按此顺序挨个尝试; 每家失败/伪200自动跳下一家; 全失败回落直连
+#   - 数据基于 2026-06-05 实测, 每家速度见 docs/superpowers/specs/2026-06-05-install-mirror-fallback-design.md
+#   - 用户可通过 FRPCMGR_DOWNLOAD_PROXY=URL 强制指定单家; FRPCMGR_NO_PROXY=1 跳过全部代理
+DL_PROXIES="
+https://gh-proxy.com/
+https://ghfast.top/
+https://github.tbedu.top/
+https://gh.idayer.com/
+https://docker.srv1.qzz.io/
+https://dk-proxy.srv1.qzz.io/
+https://dk-proxy.966788.xyz/
+https://dk-proxy.srv0.qzz.io/
+https://docker.srv0.qzz.io/
+https://docker.966788.xyz/
+"
+
 # 这些值会在 detect_platform / 参数解析阶段被填充
 OS=""
 ARCH=""
@@ -43,6 +62,8 @@ ASSUME_YES="${ASSUME_YES:-0}"
 FORCE="0"
 ACTION="install"
 TMP_DIR=""
+DL_PROXY_OVERRIDE="${FRPCMGR_DOWNLOAD_PROXY:-}"  # 用户强制指定单家代理
+DL_NO_PROXY="${FRPCMGR_NO_PROXY:-0}"             # 1=完全跳过代理直连
 
 # ----------------------------------------------------------------------------
 # 输出辅助 (带颜色, 非 TTY 自动降级为纯文本)
@@ -79,6 +100,8 @@ ${C_BOLD}frpcmgrd 一键安装脚本${C_RST}
   -u, --update          全自动更新到最新版 (保留现有端口/令牌/数据, 仅换二进制并重启)
   -f, --force           配合 --update: 即使已是最新版也强制重装
       --uninstall       卸载 (停止服务 + 删除二进制/服务文件)
+      --proxy <URL>     指定单一下载代理 (如 https://my.mirror/), 跳过内置数组
+      --no-proxy        跳过所有代理, 直连 GitHub 下载
   -h, --help            显示帮助
 
 参数可任意组合, 已传入的参数不再交互询问。示例:
@@ -96,6 +119,12 @@ ${C_BOLD}frpcmgrd 一键安装脚本${C_RST}
 
 环境变量等价形式 (适合 CI/自动化):
   FRPCMGR_PORT=9000 FRPCMGR_API_TOKEN=xxx ASSUME_YES=1 sh install.sh
+  FRPCMGR_DOWNLOAD_PROXY=https://my.mirror/  # 等价 --proxy
+  FRPCMGR_NO_PROXY=1                          # 等价 --no-proxy
+
+下载策略:
+  默认按内置代理数组挨个尝试 (公开代理 4 家在前, 自建 6 家在后), 第一个能
+  下载并解开为合法 tar.gz 的就用; 全部代理失败回落直连 GitHub。
 EOF
 }
 
@@ -109,6 +138,8 @@ parse_args() {
             -u|--update)   ACTION="update"; shift ;;
             -f|--force)    FORCE=1; shift ;;
             --uninstall)   ACTION="uninstall"; shift ;;
+            --proxy)       DL_PROXY_OVERRIDE="${2:-}"; shift 2 ;;
+            --no-proxy)    DL_NO_PROXY=1; shift ;;
             -h|--help)     usage; exit 0 ;;
             *)             die "未知参数: $1 (使用 --help 查看用法)" ;;
         esac
@@ -203,10 +234,52 @@ fetch_stdout() {
 # 下载到文件. 用法: fetch_file <url> <dest>
 fetch_file() {
     if [ "$DOWNLOADER" = "curl" ]; then
-        curl -fSL --progress-bar "$1" -o "$2"
+        curl -fSL --progress-bar --max-time 30 "$1" -o "$2"
     else
-        wget -q --show-progress -O "$2" "$1"
+        wget -q --show-progress --timeout=30 -O "$2" "$1"
     fi
+}
+
+# 验证下载文件是合法 tar.gz (防"伪 200": 代理返回 HTML 错误页但 HTTP 200)
+# 用法: verify_targz <file>; 返回 0=合法, 1=非法
+verify_targz() {
+    [ -s "$1" ] || return 1
+    tar -tzf "$1" >/dev/null 2>&1
+}
+
+# 智能代理下载: 遍历候选数组, 第一个成功+合法的就用; 全失败回落直连
+# 用法: try_download <github_url> <dest>
+try_download() {
+    _gh_url="$1"
+    _dest="$2"
+
+    # 优先级: --proxy/$FRPCMGR_DOWNLOAD_PROXY > 内置数组 > 直连
+    if [ -n "$DL_PROXY_OVERRIDE" ]; then
+        _proxy="${DL_PROXY_OVERRIDE%/}/"   # 兜底加尾斜杠
+        info "使用指定代理: ${_proxy}"
+        fetch_file "${_proxy}${_gh_url}" "$_dest" 2>/dev/null || true
+        verify_targz "$_dest" && return 0
+        warn "指定代理失败/返回非法包, 回落直连"
+        rm -f "$_dest"
+    elif [ "$DL_NO_PROXY" != "1" ]; then
+        for _proxy in $DL_PROXIES; do
+            info "尝试代理: ${_proxy}"
+            fetch_file "${_proxy}${_gh_url}" "$_dest" 2>/dev/null || { rm -f "$_dest"; continue; }
+            if verify_targz "$_dest"; then
+                ok "下载源: ${_proxy}"
+                return 0
+            fi
+            warn "  -> 返回非法包 (伪 200?), 跳下一家"
+            rm -f "$_dest"
+        done
+        warn "全部代理失败, 回落直连 GitHub"
+    fi
+
+    # 直连兜底
+    info "直连: ${_gh_url}"
+    fetch_file "$_gh_url" "$_dest" || return 1
+    verify_targz "$_dest" || { err "直连下载的文件也不是合法 tar.gz"; return 1; }
+    return 0
 }
 
 # ----------------------------------------------------------------------------
@@ -369,8 +442,8 @@ download_and_install() {
     _url="https://github.com/${REPO}/releases/download/${VERSION}/${_asset}"
 
     TMP_DIR="$(mktemp -d 2>/dev/null || mktemp -d -t frpmgr)"
-    info "下载: ${_url}"
-    fetch_file "$_url" "${TMP_DIR}/${_asset}" || die "下载失败, 请检查网络或版本号"
+    info "目标: ${_url}"
+    try_download "$_url" "${TMP_DIR}/${_asset}" || die "全部下载途径失败 (代理 + 直连)"
 
     info "解压安装包..."
     tar -xzf "${TMP_DIR}/${_asset}" -C "$TMP_DIR" || die "解压失败"

@@ -107,9 +107,13 @@ curl -fsSL https://raw.githubusercontent.com/mia-clark/frpc-manager/main/scripts
 | `-u, --update` | 全自动更新到最新版（保留现有端口/令牌/数据） |
 | `-f, --force` | 配合 `--update`，即使已是最新也强制重装 |
 | `--uninstall` | 卸载 |
+| `--proxy <URL>` | 指定单一下载代理（如 `https://my.mirror/`），跳过内置代理数组 |
+| `--no-proxy` | 跳过所有代理，直连 GitHub |
 | `-h, --help` | 查看帮助 |
 
-> 参数可任意组合，已传入的项就不再交互询问。也支持环境变量：`FRPCMGR_PORT=9000 FRPCMGR_API_TOKEN=xxx ASSUME_YES=1`。
+> 参数可任意组合，已传入的项就不再交互询问。也支持环境变量：`FRPCMGR_PORT=9000 FRPCMGR_API_TOKEN=xxx ASSUME_YES=1 FRPCMGR_DOWNLOAD_PROXY=https://my.mirror/ FRPCMGR_NO_PROXY=1`。
+
+> **下载策略**：安装脚本内置一份按优先级排好的 GitHub release 代理候选数组（公开 4 家 + 自建 6 家），下载二进制时挨个尝试，第一个能完整下载并通过完整性校验的就用；全部代理失败才回落直连。所以**国内网络也无需手动配代理**，不通会自动切下一家。需要强制指定就用 `--proxy URL` 或 `FRPCMGR_DOWNLOAD_PROXY`。
 
 ### 🔄 全自动更新与定时更新
 
