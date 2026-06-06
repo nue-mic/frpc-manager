@@ -463,7 +463,8 @@ function Register-FrpmgrService {
         "FRPCMGR_DATA_DIR=$DataDir",
         "FRPCMGR_LOG_LEVEL=info",
         "FRPCMGR_CORS_ORIGINS=*",
-        "FRPCMGR_DOCS_ENABLED=true"
+        "FRPCMGR_DOCS_ENABLED=true",
+        "FRPCMGR_SELF_UPDATE_ENABLED=true"
     )
     & $script:NssmPath set $ServiceName AppEnvironmentExtra @envPairs | Out-Null
 

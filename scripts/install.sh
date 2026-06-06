@@ -472,6 +472,8 @@ FRPCMGR_DATA_DIR=${DATA_DIR}
 FRPCMGR_LOG_LEVEL=info
 FRPCMGR_CORS_ORIGINS=*
 FRPCMGR_DOCS_ENABLED=true
+# 是否允许在 Web 后台「关于」页一键自更新并重启 (true/false)
+FRPCMGR_SELF_UPDATE_ENABLED=true
 EOF
     priv install -m 0600 "$_tmp_env" "$ENV_FILE"
 }
@@ -584,6 +586,8 @@ setup_launchd() {
         <string>${DATA_DIR}</string>
         <key>FRPCMGR_LOG_LEVEL</key>
         <string>info</string>
+        <key>FRPCMGR_SELF_UPDATE_ENABLED</key>
+        <string>true</string>
     </dict>
     <key>RunAtLoad</key>
     <true/>

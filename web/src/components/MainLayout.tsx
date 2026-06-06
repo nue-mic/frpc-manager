@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useMemo } from 'react';
-import { Layout, Menu, Button, Space, Typography, Modal, Tag, Tooltip, theme as antdTheme, App } from 'antd';
+import { Layout, Menu, Button, Space, Typography, Modal, Tag, Tooltip, Badge, theme as antdTheme, App } from 'antd';
 import {
   DashboardOutlined,
   ClusterOutlined,
@@ -17,6 +17,7 @@ import {
 import type { MenuProps } from 'antd';
 import { useNavigate, useLocation, Outlet } from 'react-router-dom';
 import client, { getAPIToken, clearAPIToken } from '../api/client';
+import { checkVersion } from '../api/update';
 import ThemeSwitcher from '../theme/ThemeSwitcher';
 import { useEventStream } from '../events/EventStreamContext';
 
@@ -34,6 +35,8 @@ const MainLayout: React.FC = () => {
 
   const [version, setVersion] = useState<string>('获取中…');
   const [frpVer, setFrpVer] = useState<string>('');
+  const [hasUpdate, setHasUpdate] = useState(false);
+  const [latestVer, setLatestVer] = useState<string>('');
 
   useEffect(() => {
     const t = getAPIToken();
@@ -41,6 +44,7 @@ const MainLayout: React.FC = () => {
       navigate('/login');
     } else {
       fetchSystemVersion();
+      fetchUpdateState();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [navigate]);
@@ -54,6 +58,17 @@ const MainLayout: React.FC = () => {
       }
     } catch {
       // 静默：实时连接状态由 WebSocket 反映
+    }
+  };
+
+  // 后台静默检查是否有新版本；命中后端 ~1h 缓存，开销很小。
+  const fetchUpdateState = async () => {
+    try {
+      const r = await checkVersion(false);
+      setHasUpdate(!!r.has_update);
+      setLatestVer(r.latest || '');
+    } catch {
+      // 静默失败：检查更新非关键路径
     }
   };
 
@@ -237,11 +252,17 @@ const MainLayout: React.FC = () => {
           </Space>
 
           <Space size="middle" align="center">
-            <Tooltip title="后端版本">
-              <Tag bordered={false}>
-                Daemon v{version || '—'}
-                {frpVer ? ` · frp ${frpVer}` : ''}
-              </Tag>
+            <Tooltip title={hasUpdate ? `发现新版本 ${latestVer}，点击前往升级` : '后端版本'}>
+              <Badge dot={hasUpdate} offset={[-2, 4]}>
+                <Tag
+                  bordered={false}
+                  onClick={() => navigate('/about')}
+                  style={{ cursor: 'pointer' }}
+                >
+                  Daemon v{version || '—'}
+                  {frpVer ? ` · frp ${frpVer}` : ''}
+                </Tag>
+              </Badge>
             </Tooltip>
             <ThemeSwitcher />
             <Button type="text" danger icon={<PoweroffOutlined />} onClick={handleLogout}>

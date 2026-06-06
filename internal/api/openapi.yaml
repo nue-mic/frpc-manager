@@ -35,6 +35,45 @@ paths:
       summary: Version information
       responses:
         '200': { description: OK }
+  /api/v1/version/check:
+    get:
+      tags: [system]
+      summary: Check the latest GitHub release vs the running version
+      parameters:
+        - in: query
+          name: force
+          required: false
+          schema: { type: integer, enum: [1] }
+          description: Bypass the ~1h server-side cache when set to 1.
+      responses:
+        '200':
+          description: >
+            Version comparison result. Always returns current/frp/
+            deployment_mode/self_update_enabled/has_update/can_self_update/
+            reason; latest/changelog/html_url/published_at are present only
+            when the GitHub query succeeded; check_error only on failure.
+  /api/v1/system/update:
+    post:
+      tags: [system]
+      summary: Launch an in-place self-update and restart the daemon
+      description: >
+        Spawns a detached updater that downloads the latest release, swaps the
+        binary and restarts the service. Returns 202 immediately; the client
+        should poll /version until the version changes. Gated by
+        FRPCMGR_SELF_UPDATE_ENABLED and only available for service deployments
+        (not Docker/manual). Pass ?force=1 to reinstall the current latest.
+      parameters:
+        - in: query
+          name: force
+          required: false
+          schema: { type: integer, enum: [1] }
+          description: Reinstall even when already up to date.
+      responses:
+        '202': { description: Update started; service restarting }
+        '403': { description: Self-update disabled by operator }
+        '400': { description: Deployment does not support self-update }
+        '409': { description: Already up to date (without force) }
+        '502': { description: Could not query the latest release }
   /api/v1/configs:
     get:
       tags: [configs]
