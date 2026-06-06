@@ -24,6 +24,7 @@ import {
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { checkVersion, startUpdate, waitForRestart, type VersionCheckResp } from '../api/update';
+import { fmtDateTime } from '../utils/time';
 
 const { Text, Title, Paragraph } = Typography;
 
@@ -316,7 +317,7 @@ const UpdateCard: React.FC = () => {
           <Markdown>{info?.changelog || '（本版本未提供更新说明）'}</Markdown>
           {info?.published_at && (
             <Text type="secondary" style={{ fontSize: 12 }}>
-              发布于 {new Date(info.published_at).toLocaleString()}
+              发布于 {fmtDateTime(info.published_at)}
             </Text>
           )}
         </div>

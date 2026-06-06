@@ -31,6 +31,7 @@ import {
 } from '@ant-design/icons';
 import client from '../api/client';
 import UpdateCard from '../components/UpdateCard';
+import { fmtDateTime } from '../utils/time';
 
 const { Title, Text, Paragraph } = Typography;
 
@@ -188,7 +189,7 @@ const About: React.FC = () => {
                 React 19 · Ant Design 6
               </Tag>
               <Tag style={{ background: 'rgba(255,255,255,0.18)', border: '1px solid rgba(255,255,255,0.3)', color: '#fff', borderRadius: 14, padding: '2px 12px' }}>
-                构建 {version.build_date || '—'}
+                构建 {fmtDateTime(version.build_date)}
               </Tag>
             </Space>
           </div>
@@ -339,7 +340,7 @@ function renderInfoTab(opts: { token: TokenLike; version: VersionResp }) {
         <Descriptions.Item label="嵌入 frp">
           <Tag color="cyan">{version.frp || '—'}</Tag>
         </Descriptions.Item>
-        <Descriptions.Item label="构建时间">{version.build_date || '—'}</Descriptions.Item>
+        <Descriptions.Item label="构建时间">{fmtDateTime(version.build_date)}</Descriptions.Item>
         <Descriptions.Item label="前端栈">React 19 · Ant Design 6 · Vite</Descriptions.Item>
         <Descriptions.Item label="实时通道">WebSocket (/api/v1/events)</Descriptions.Item>
       </Descriptions>
