@@ -9,7 +9,7 @@ info:
     WebSocket at /api/v1/events.
   version: 1.0.0
 servers:
-  - url: http://localhost:8080
+  - url: http://localhost:18080
 security:
   - BearerAuth: []
 tags:

@@ -56,7 +56,7 @@ function action_info()
 		downloading = fs.access(DL_LOCK) and true or false,
 		cfg = {
 			enabled      = u("enabled", "1"),
-			http_addr    = u("http_addr", ":8080"),
+			http_addr    = u("http_addr", ":18080"),
 			token        = u("token", ""),
 			data_dir     = u("data_dir", "/usr/lib/frpcmgrd"),
 			log_level    = u("log_level", "info"),

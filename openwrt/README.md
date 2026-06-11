@@ -2,7 +2,7 @@
 
 把无头 FRP 客户端管理器 `frpcmgrd` 打成 OpenWrt 的**一个** ipk 包：`Architecture: all`，**一个包到处装**，不分 CPU 架构。装上即由 **procd** 守护，配置走 **UCI**（`/etc/config/frpcmgrd`），可改端口/登录令牌、开机自启、一键启停、彻底装卸。
 
-> 本目录自包含：ipk 生成逻辑、随包脚本、服务/配置文件全在这里。发布时由 CI（[.github/workflows/release.yml](../.github/workflows/release.yml) 的 `openwrt-ipk` job）调 [build-ipk.sh](build-ipk.sh) 生成单个 `frpcmgrd_<版本>-1_all.ipk` 并传到对应 GitHub Release 的 assets。
+> 本目录自包含：ipk 生成逻辑、随包脚本、服务/配置文件全在这里。发布时由 CI（[.github/workflows/release.yml](../.github/workflows/release.yml) 的 `openwrt-ipk` job）调 [build-ipk.sh](build-ipk.sh) 生成单个 `luci-app-frpcmgrd_<版本>-1_all.ipk` 并传到对应 GitHub Release 的 assets。
 
 ---
 
@@ -56,8 +56,8 @@ opkg install 时 → 只装壳子（不下载二进制）→ enable 服务
 ## 安装与使用（全程网页操作）
 
 ```sh
-# 上传 frpcmgrd_<版本>-1_all.ipk 到路由器后：
-opkg install frpcmgrd_<版本>-1_all.ipk
+# 上传 luci-app-frpcmgrd_<版本>-1_all.ipk 到路由器后：
+opkg install luci-app-frpcmgrd_<版本>-1_all.ipk
 ```
 
 无需挑架构——任何设备装同一个 `all` 包。装完后**全程在网页里操作**：
@@ -87,7 +87,7 @@ uci commit frpcmgrd
 | UCI 选项 | 默认 | 说明 |
 |---|---|---|
 | `enabled` | `1` | 0=禁用，不启动 |
-| `http_addr` | `:8080` | 监听地址 `:端口` 或 `ip:端口` |
+| `http_addr` | `:18080` | 监听地址 `:端口` 或 `ip:端口` |
 | `token` | 空 | 登录令牌；**留空则首次启动自动生成强随机令牌** |
 | `data_dir` | `/usr/lib/frpcmgrd` | 数据根目录，**必须持久化路径**（勿用 /tmp、/var） |
 | `log_level` | `info` | trace/debug/info/warn/error |
@@ -114,7 +114,7 @@ logread -e frpcmgrd -f            # 实时日志
 frpcmgrd-fetch latest            # 查最新版（经自建源/GitHub API）并安装
 frpcmgrd-fetch 1.2.40            # 或拉指定版本；不带参数=随包 VERSION 记录的版本
 # 或重装新版 all ipk（postinst 会自动拉新版二进制）：
-opkg install frpcmgrd_<新版本>-1_all.ipk
+opkg install luci-app-frpcmgrd_<新版本>-1_all.ipk
 
 # 卸载（停服 + 删壳子；自取的 /usr/bin/frpcmgrd 与 /usr/lib/frpcmgrd 由 postrm 清理）
 opkg remove frpcmgrd
@@ -137,7 +137,7 @@ VERSION=1.2.34 ./openwrt/build-ipk.sh --out dist-ipk
 ./openwrt/build-ipk.sh --version 1.2.34
 ```
 
-参数：`--version`（必填，须与 GitHub Release 一致，决定 `frpcmgrd-fetch` 默认拉哪个版本）、`--release`（默认 1）、`--out`（默认 dist-ipk）。产出单个 `frpcmgrd_<版本>-1_all.ipk`。本地也可 `make ipk VERSION=1.2.34`。
+参数：`--version`（必填，须与 GitHub Release 一致，决定 `frpcmgrd-fetch` 默认拉哪个版本）、`--release`（默认 1）、`--out`（默认 dist-ipk）。产出单个 `luci-app-frpcmgrd_<版本>-1_all.ipk`。本地也可 `make ipk VERSION=1.2.34`。
 
 > Windows/git-bash 也能跑（内置 `cygpath` 适配）；CI 在 Linux 上无此转换。
 

@@ -17,7 +17,7 @@ docker compose logs -f frpcmgrd
 健康检查:
 
 ```bash
-curl http://localhost:8080/api/v1/health
+curl http://localhost:18080/api/v1/health
 # {"status":"ok","uptime_s":3}
 ```
 
@@ -25,7 +25,7 @@ curl http://localhost:8080/api/v1/health
 
 ```bash
 TOKEN=$(grep ^FRPCMGR_API_TOKEN= .env | cut -d= -f2)
-curl -H "Authorization: Bearer $TOKEN" http://localhost:8080/api/v1/version
+curl -H "Authorization: Bearer $TOKEN" http://localhost:18080/api/v1/version
 ```
 
 ## 数据布局
@@ -45,7 +45,7 @@ curl -H "Authorization: Bearer $TOKEN" http://localhost:8080/api/v1/version
 | 变量 | 必填 | 默认 | 说明 |
 |---|---|---|---|
 | `FRPCMGR_API_TOKEN` | ✓ | — | API 鉴权 Bearer Token |
-| `FRPCMGR_HTTP_ADDR` |   | `:8080` | 监听地址 |
+| `FRPCMGR_HTTP_ADDR` |   | `:18080` | 监听地址 |
 | `FRPCMGR_DATA_DIR`  |   | `/data` | 数据根目录 |
 | `FRPCMGR_CORS_ORIGINS` |   | `*` | 逗号分隔的 CORS 白名单 |
 | `FRPCMGR_LOG_LEVEL` |   | `info` | trace/debug/info/warn/error |
@@ -55,7 +55,7 @@ curl -H "Authorization: Bearer $TOKEN" http://localhost:8080/api/v1/version
 
 - 所有 `/api/v1/*`(除 `/health`)要求 `Authorization: Bearer <token>`
 - WebSocket 客户端如果无法设置 header,可用 query 参数:
-  `ws://host:8080/api/v1/events?token=<token>`
+  `ws://host:18080/api/v1/events?token=<token>`
 
 ## 核心端点
 
@@ -91,7 +91,7 @@ curl -H "Authorization: Bearer $TOKEN" http://localhost:8080/api/v1/version
 
 ## 浏览器版 API 文档
 
-启动后访问 **<http://localhost:8080/api/docs/>** — 内置 [Scalar](https://github.com/scalar/scalar)(MIT,OpenAPI 3.1 原生支持),界面现代化,带"try it out"调试功能。
+启动后访问 **<http://localhost:18080/api/docs/>** — 内置 [Scalar](https://github.com/scalar/scalar)(MIT,OpenAPI 3.1 原生支持),界面现代化,带"try it out"调试功能。
 
 - HTML 页:`GET /api/docs/` — Scalar reference UI,从 jsdelivr CDN 加载 JS bundle
 - 原始 spec:`GET /api/docs/openapi.yaml`(也支持 `.json` 别名)
@@ -134,7 +134,7 @@ WebSocket `/api/v1/events` 每个 frame 是一个 JSON Event:
 
 ```bash
 curl -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
-  -X POST http://localhost:8080/api/v1/configs -d '{
+  -X POST http://localhost:18080/api/v1/configs -d '{
     "id": "demo",
     "config": {
       "serverAddr": "frps.example.com",

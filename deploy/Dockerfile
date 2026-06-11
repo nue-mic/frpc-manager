@@ -76,11 +76,11 @@ COPY deploy/entrypoint.sh /usr/local/bin/entrypoint.sh
 RUN chmod +x /usr/local/bin/entrypoint.sh /usr/local/bin/frpcmgrd
 
 ENV FRPCMGR_DATA_DIR=/data \
-    FRPCMGR_HTTP_ADDR=:8080 \
+    FRPCMGR_HTTP_ADDR=:18080 \
     FRPCMGR_LOG_LEVEL=info \
     FRPCMGR_CORS_ORIGINS="*"
 
-EXPOSE 8080
+EXPOSE 18080
 VOLUME ["/data"]
 
 # Intentionally no USER directive — entrypoint.sh starts as root just

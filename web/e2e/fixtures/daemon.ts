@@ -8,7 +8,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
 export type Daemon = {
-  /** 完整 base URL, 例: http://127.0.0.1:18080 */
+  /** 完整 base URL, 例: http://127.0.0.1:28080 */
   baseURL: string;
   /** API token */
   token: string;
@@ -27,7 +27,7 @@ type Fixtures = {
  *
  * 每个 worker 启动时:
  *   1. 创建独立 TempDir
- *   2. 起一个 frpcmgrd 子进程, 监听 :18080+workerIndex
+ *   2. 起一个 frpcmgrd 子进程, 监听 :28080+workerIndex
  *   3. 轮询 GET /api/v1/version 直到 200 (max 5s)
  *   4. 测试运行
  *   5. 结束时 kill daemon, 全绿就删 TempDir, 否则保留
@@ -42,7 +42,7 @@ export const test = base.extend<{}, Fixtures>({
         );
       }
 
-      const port = 18080 + workerInfo.workerIndex;
+      const port = 28080 + workerInfo.workerIndex;
       const token = `e2e-token-${workerInfo.workerIndex}`;
       const e2eTmpRoot = resolve(__dirname, '..', '..', 'e2e-tmp');
       const dataDir = mkdtempSync(join(e2eTmpRoot, `w${workerInfo.workerIndex}-`));

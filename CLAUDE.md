@@ -62,8 +62,8 @@ make docker       # 多阶段镜像（自带 node+go，无需本地依赖）
 
 前后端**分离调试**：
 
-1. 起后端：`make run`（监听 `:8080`，token=`dev`，数据写 `./tmp/data`）。
-2. 起前端：`cd web && npm run dev`（监听 `:5173`）。`vite.config` 已把 `/api`、WS 代理到 `:8080`，前端 `client.ts` 用**相对路径** baseURL，所以走代理即可，无需配 CORS。
+1. 起后端：`make run`（监听 `:18080`，token=`dev`，数据写 `./tmp/data`）。
+2. 起前端：`cd web && npm run dev`（监听 `:5173`）。`vite.config` 已把 `/api`、WS 代理到 `:18080`，前端 `client.ts` 用**相对路径** baseURL，所以走代理即可，无需配 CORS。
 3. 浏览器开 `http://localhost:5173`，首次需在登录页填 API token（dev 环境即 `dev`）。token 存 localStorage，axios 拦截器自动加 `Authorization: Bearer`，401 统一跳登录。
 
 生产/单二进制：前端已 embed，直接访问 daemon 端口同域即可。
@@ -87,7 +87,7 @@ make docker       # 多阶段镜像（自带 node+go，无需本地依赖）
 | 变量 | 默认 | 说明 |
 |---|---|---|
 | `FRPCMGR_API_TOKEN` | （必填） | API 鉴权令牌，登录后台凭证 |
-| `FRPCMGR_HTTP_ADDR` | `:8080` | 监听地址 |
+| `FRPCMGR_HTTP_ADDR` | `:18080` | 监听地址 |
 | `FRPCMGR_DATA_DIR` | `/data` | 数据根目录（profiles/logs/stores/meta.json） |
 | `FRPCMGR_CORS_ORIGINS` | `*` | CORS 白名单 |
 | `FRPCMGR_LOG_LEVEL` | `info` | trace/debug/info/warn/error |

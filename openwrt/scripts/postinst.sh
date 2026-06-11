@@ -16,7 +16,7 @@ rm -rf /tmp/luci-modulecache 2>/dev/null
 /etc/init.d/rpcd reload >/dev/null 2>&1
 
 _addr="$(uci -q get frpcmgrd.main.http_addr 2>/dev/null)"
-[ -n "$_addr" ] || _addr=":8080"
+[ -n "$_addr" ] || _addr=":18080"
 
 echo ""
 echo "==================================================================="

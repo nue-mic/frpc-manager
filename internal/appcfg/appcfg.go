@@ -31,7 +31,7 @@ type Config struct {
 // without sensible defaults will return an error.
 func Load() (*Config, error) {
 	cfg := &Config{
-		HTTPAddr:     getEnv("FRPCMGR_HTTP_ADDR", ":8080"),
+		HTTPAddr:     getEnv("FRPCMGR_HTTP_ADDR", ":18080"),
 		APIToken:     os.Getenv("FRPCMGR_API_TOKEN"),
 		CORSOrigins:  splitCSV(getEnv("FRPCMGR_CORS_ORIGINS", "*")),
 		DataDir:      getEnv("FRPCMGR_DATA_DIR", "/data"),

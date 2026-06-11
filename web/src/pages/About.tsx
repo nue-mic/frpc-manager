@@ -403,7 +403,7 @@ FRPCMGR_API_TOKEN=$(openssl rand -hex 32) ./frpcmgrd serve`;
       <CodeBlock code={cnInteractive} token={token} onCopy={copyText} language="sh" />
 
       <Paragraph type="secondary" style={{ marginBottom: 8, fontSize: 12.5 }}>
-        全自动安装（默认端口 8080，自动生成随机令牌）：
+        全自动安装（默认端口 18080，自动生成随机令牌）：
       </Paragraph>
       <CodeBlock code={cnAuto} token={token} onCopy={copyText} language="sh" />
 
@@ -482,7 +482,7 @@ function renderDockerTab(opts: { token: TokenLike; copyText: (s: string) => void
 
   const dockerRun = `docker run -d --name frpcmgrd --network host \\
   -e FRPCMGR_API_TOKEN="$(openssl rand -hex 32)" \\
-  -e FRPCMGR_HTTP_ADDR=":8080" \\
+  -e FRPCMGR_HTTP_ADDR=":18080" \\
   -v $(pwd)/frpcmgr-data:/data \\
   --restart unless-stopped \\
   ${DOCKER_IMAGE}`;
@@ -498,7 +498,7 @@ services:
     environment:
       # ⚠️ 必填，登录管理面板的 Bearer 令牌（强随机字符串）
       FRPCMGR_API_TOKEN: \${FRPCMGR_API_TOKEN:?required}
-      FRPCMGR_HTTP_ADDR: ":8080"
+      FRPCMGR_HTTP_ADDR: ":18080"
       FRPCMGR_DATA_DIR: "/data"
       FRPCMGR_LOG_LEVEL: "info"
       # 关闭 /api/docs 在线 UI（生产可选）
@@ -673,7 +673,7 @@ function renderEnvTab(opts: { token: TokenLike }) {
 
   const envs: Array<{ key: string; required: string; default: string; desc: string }> = [
     { key: 'FRPCMGR_API_TOKEN',     required: '✓', default: '—',        desc: 'API 鉴权 Bearer 令牌，登录管理面板的凭证。建议 openssl rand -hex 32 生成。' },
-    { key: 'FRPCMGR_HTTP_ADDR',     required: '',  default: ':8080',     desc: '监听地址，格式 :端口 或 ip:端口。' },
+    { key: 'FRPCMGR_HTTP_ADDR',     required: '',  default: ':18080',    desc: '监听地址，格式 :端口 或 ip:端口。' },
     { key: 'FRPCMGR_DATA_DIR',      required: '',  default: '/data',     desc: '数据根目录。子目录：profiles/(配置 TOML)、logs/(合并日志)、stores/(visitor 状态)、meta.json(元数据)。' },
     { key: 'FRPCMGR_CORS_ORIGINS',  required: '',  default: '*',         desc: '逗号分隔的 CORS 白名单。前后端分离调试时填具体 origin。' },
     { key: 'FRPCMGR_LOG_LEVEL',     required: '',  default: 'info',      desc: 'trace / debug / info / warn / error。' },

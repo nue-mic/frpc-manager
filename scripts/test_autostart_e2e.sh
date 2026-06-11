@@ -7,7 +7,7 @@
 
 set -uo pipefail
 
-PORT=${TEST_PORT:-18080}
+PORT=${TEST_PORT:-28080}
 TOKEN=${TEST_TOKEN:-e2etest}
 DATA=${TEST_DATA:-tmp/test-autostart}
 BIN=${TEST_BIN:-./frpcmgrd-dev.exe}

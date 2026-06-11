@@ -65,7 +65,7 @@
 	<h3>⚙️ <%:基本配置%></h3>
 	<div class="fm-form">
 		<label><%:监听地址（:端口 或 ip:端口）%></label>
-		<input type="text" id="cfg_http_addr" placeholder=":8080">
+		<input type="text" id="cfg_http_addr" placeholder=":18080">
 		<label><%:登录令牌（API Token，后台访问凭证）%></label>
 		<input type="text" id="cfg_token" placeholder="留空=首次启动自动生成">
 		<label><%:数据目录（须持久化路径，勿用 /tmp、/var）%></label>
@@ -114,8 +114,8 @@
 		else { btn.textContent = btn.dataset.txt || btn.textContent; btn.disabled = false; }
 	}
 
-	var curPort = '8080';
-	function portFromAddr(a){ if(!a) return '8080'; var m=String(a).match(/:(\d+)\s*$/); return m?m[1]:'8080'; }
+	var curPort = '18080';
+	function portFromAddr(a){ if(!a) return '18080'; var m=String(a).match(/:(\d+)\s*$/); return m?m[1]:'18080'; }
 
 	function refresh(){
 		return req('info').then(function(d){

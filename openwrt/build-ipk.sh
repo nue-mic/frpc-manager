@@ -104,7 +104,7 @@ sed -e "s|__PKG_VERSION__|$(sed_escape "$VERSION")|g" \
     -e "s|__UCIDEF_LUCI__|$(sed_escape "$(to_native "$UCIDEF_LUCI")")|g" \
     "$NFPM_CONF" > "$YAML"
 
-OUTFILE="$OUT/frpcmgrd_${VERSION}-${PKG_RELEASE}_all.ipk"
+OUTFILE="$OUT/luci-app-frpcmgrd_${VERSION}-${PKG_RELEASE}_all.ipk"
 info "打包 all 架构包: 版本 ${VERSION}-${PKG_RELEASE}"
 nfpm package -f "$(to_native "$YAML")" -p ipk -t "$(to_native "$OUTFILE")" >/dev/null \
 	|| die "nfpm 打包失败"

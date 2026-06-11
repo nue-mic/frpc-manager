@@ -57,7 +57,7 @@ description: Use this skill whenever you are about to write, modify, or debug AN
 这一步可以借助：
 - `docs/API.zh-CN.md` 已整理的字段表
 - `internal/api/openapi.yaml` 的路径定义
-- 实地探测 `curl -H "Authorization: Bearer ..." http://localhost:8080/api/v1/...`
+- 实地探测 `curl -H "Authorization: Bearer ..." http://localhost:18080/api/v1/...`
 
 ### Step 3 — 写前端代码
 

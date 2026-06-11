@@ -2,7 +2,7 @@ config frpcmgrd 'main'
 	# 是否启用服务 (0=禁用，init 脚本将不启动)
 	option enabled '1'
 	# 监听地址，格式 :端口 或 ip:端口
-	option http_addr ':8080'
+	option http_addr ':18080'
 	# API 登录令牌 (后台访问凭证)。留空时首次启动自动生成强随机令牌，
 	# 之后用 `uci get frpcmgrd.main.token` 查看。
 	option token ''

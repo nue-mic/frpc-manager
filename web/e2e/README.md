@@ -42,7 +42,7 @@ npm run test:e2e -- 04-log-isolation.spec.ts
 
 - 每个 spec 用 `fixtures/daemon.ts` 拿到独立 daemon fixture：
   - 启独立 `frpcmgrd-dev.exe` 子进程
-  - 监听 `:18080 + workerIndex`（端口逐 worker 偏移）
+  - 监听 `:28080 + workerIndex`（端口逐 worker 偏移）
   - 独立 `e2e-tmp/<workerN>-<rand>/` 数据目录
   - 子进程 stdout/stderr 落到 `daemon.log`
 - 串行 (`workers: 1`) 避免端口冲突
@@ -62,7 +62,7 @@ npm run test:e2e -- 04-log-isolation.spec.ts
 ### 找不到选择器时
 
 1. 用 `npm run test:e2e:ui -- NN-name.spec.ts` 在浏览器里交互定位
-2. 或 `npx playwright codegen http://127.0.0.1:18080` 录制后复制选择器到 `selectors.ts`
+2. 或 `npx playwright codegen http://127.0.0.1:28080` 录制后复制选择器到 `selectors.ts`
 3. 仍不行可在 React 组件加 `data-testid`，并在 commit message 中标注
 
 ### 创建配置
@@ -106,7 +106,7 @@ npm run test:e2e -- 04-log-isolation.spec.ts
 | 现象 | 原因 / 解决 |
 |---|---|
 | globalSetup 抛错 "frpcmgrd binary not found" | 先 `make build-host` |
-| Daemon 起不来（5s 超时） | 看 `e2e-tmp/<spec>/daemon.log` 末尾，可能 18080 端口被占 / 杀软拦截 / token env 配错 |
+| Daemon 起不来（5s 超时） | 看 `e2e-tmp/<spec>/daemon.log` 末尾，可能 28080 端口被占 / 杀软拦截 / token env 配错 |
 | 选择器找不到（Locator not found） | 用 `npm run test:e2e:ui` 实地探测 + 改 `selectors.ts` |
 | 场景 4/5 失败 | 确认当前分支已合 `feature/frpc-logs-isolation`（`logs/frpc.log` 存在而非 per-id `.log`） |
 | Form save 后无 success toast | 检查 `auth.token` 是否被 form validation 默默拒绝（`minimalConfig` 已修） |

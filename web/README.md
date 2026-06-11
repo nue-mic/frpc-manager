@@ -52,8 +52,8 @@ cd web
 npm run build        # 产出 dist/，被 web/web.go 的 //go:embed dist 吸收
 cd ..
 go build -o frpcmgrd ./cmd/frpcmgrd
-./frpcmgrd serve --addr :8080 --data-dir ./data
-# 浏览器访问 http://localhost:8080 即可看到嵌入的控制台
+./frpcmgrd serve --addr :18080 --data-dir ./data
+# 浏览器访问 http://localhost:18080 即可看到嵌入的控制台
 ```
 
 ## 目录速览

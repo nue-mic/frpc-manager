@@ -43,7 +43,7 @@ $Repo         = 'mia-clark/frpc-manager'
 $BinName      = 'frpcmgrd.exe'
 $ServiceName  = 'frpcmgrd'
 $DisplayName  = 'frpcmgrd - FRP Manager Server'
-$DefaultPort  = '8080'
+$DefaultPort  = '18080'
 $InstallDir   = Join-Path $env:ProgramFiles 'frpcmgrd'        # 二进制 + nssm.exe
 $DataDir      = Join-Path $env:ProgramData  'frpcmgrd\data'   # 运行数据
 $LogDir       = Join-Path $env:ProgramData  'frpcmgrd\logs'   # 服务日志
@@ -615,7 +615,7 @@ function Write-UrlLine {
 }
 
 function Do-Info {
-    $port = '8080'; $token = '(未读取到)'; $ddir = $DataDir; $loglv = 'info'
+    $port = '18080'; $token = '(未读取到)'; $ddir = $DataDir; $loglv = 'info'
     if (Use-Nssm) {
         $raw = & $NssmPath get $ServiceName AppEnvironmentExtra 2>$null
         foreach ($line in $raw) {

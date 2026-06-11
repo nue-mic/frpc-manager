@@ -66,7 +66,7 @@ start_service() {
 	ensure_token || return 1
 
 	config_load "$CONF"
-	config_get      http_addr    main http_addr    ':8080'
+	config_get      http_addr    main http_addr    ':18080'
 	config_get      token        main token        ''
 	config_get      data_dir     main data_dir     '/usr/lib/frpcmgrd'
 	config_get      log_level    main log_level    'info'

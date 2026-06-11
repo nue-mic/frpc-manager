@@ -55,7 +55,7 @@ COMMANDS
 
 ENV
   FRPCMGR_API_TOKEN       Required. Bearer token for API auth.
-  FRPCMGR_HTTP_ADDR       Listen address (default ":8080")
+  FRPCMGR_HTTP_ADDR       Listen address (default ":18080")
   FRPCMGR_DATA_DIR        Data root (default "/data")
   FRPCMGR_CORS_ORIGINS    Comma-separated origins or "*" (default "*")
   FRPCMGR_LOG_LEVEL       trace|debug|info|warn|error (default "info")
@@ -145,7 +145,7 @@ func runServe(args []string) int {
 
 func runHealth(args []string) int {
 	fs := flag.NewFlagSet("health", flag.ExitOnError)
-	addr := fs.String("addr", "http://127.0.0.1:8080", "daemon base URL")
+	addr := fs.String("addr", "http://127.0.0.1:18080", "daemon base URL")
 	_ = fs.Parse(args)
 
 	client := &http.Client{Timeout: 3 * time.Second}

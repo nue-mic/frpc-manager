@@ -28,7 +28,7 @@ REPO="mia-clark/frpc-manager"
 BIN_NAME="frpcmgrd"
 INSTALL_DIR="/usr/local/bin"
 SERVICE_NAME="frpcmgrd"
-DEFAULT_PORT="8080"
+DEFAULT_PORT="18080"
 
 # ----------------------------------------------------------------------------
 # GitHub release 下载代理候选 (按用户指定顺序: 公开4家在前, 自建6家在后)
@@ -839,7 +839,7 @@ print_url_line() {
 }
 
 cmd_info() {
-    _addr="$(env_get FRPCMGR_HTTP_ADDR)"; _port="${_addr#:}"; [ -n "$_port" ] || _port="8080"
+    _addr="$(env_get FRPCMGR_HTTP_ADDR)"; _port="${_addr#:}"; [ -n "$_port" ] || _port="18080"
     _token="$(env_get FRPCMGR_API_TOKEN)"
     _ddir="$(env_get FRPCMGR_DATA_DIR)";  [ -n "$_ddir" ] || _ddir="$DATA_DIR"
     _loglv="$(env_get FRPCMGR_LOG_LEVEL)"; [ -n "$_loglv" ] || _loglv="info"
@@ -864,7 +864,7 @@ cmd_info() {
     print_url_line "API 文档" "$_port" "/api/docs"
     [ -n "$(public_ips)" ] && printf "  %b\n" "${C_YLW}注: 外网地址能否实际访问取决于防火墙/安全组/NAT 是否放行该端口${C_RST}"
     printf "  API 令牌 : ${C_BOLD}%s${C_RST}\n" "${_token:-(未读取到)}"
-    printf "  监听地址 : %s\n" "${_addr:-:8080}"
+    printf "  监听地址 : %s\n" "${_addr:-:18080}"
     printf "  日志级别 : %s\n" "$_loglv"
     printf "  程序路径 : %s\n" "${INSTALL_DIR}/${BIN_NAME}"
     printf "  管理命令 : %s\n" "${INSTALL_DIR}/fmc"

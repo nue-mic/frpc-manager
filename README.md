@@ -38,7 +38,7 @@ curl -fsSL https://gh-raw.966788.xyz/frpc-mgr/install.sh | sh
 **全自动安装**（一行搞定，不问任何问题）：
 
 ```sh
-# 默认端口 8080 + 自动生成强随机令牌
+# 默认端口 18080 + 自动生成强随机令牌
 curl -fsSL https://gh-raw.966788.xyz/frpc-mgr/install.sh | sh -s -- -y
 
 # 指定端口 9000 + 自动生成令牌
@@ -101,7 +101,7 @@ curl -fsSL https://raw.githubusercontent.com/mia-clark/frpc-manager/main/scripts
 > 一行命令安装并注册为 Windows 服务。下面命令必须在**管理员身份的 PowerShell** 里运行（右键 PowerShell → 以管理员身份运行）。
 
 ```powershell
-# 全自动（默认端口 8080 + 自动生成强随机令牌）
+# 全自动（默认端口 18080 + 自动生成强随机令牌）
 $env:ASSUME_YES=1; irm https://raw.githubusercontent.com/mia-clark/frpc-manager/main/scripts/install.ps1 | iex
 
 # 全自动 + 指定端口
@@ -145,7 +145,7 @@ $env:FRPCMGR_PORT=9000; $env:FRPCMGR_API_TOKEN='我的强随机令牌'; $env:ASS
 
 | 参数 | 作用 |
 |---|---|
-| `-p, --port <端口>` | 指定监听端口；传 `random` 随机端口；省略则交互/默认 `8080` |
+| `-p, --port <端口>` | 指定监听端口；传 `random` 随机端口；省略则交互/默认 `18080` |
 | `-t, --token <令牌>` | 指定 API 令牌；省略则交互输入，留空自动生成强随机令牌 |
 | `-v, --version <版本>` | 指定版本（如 `v1.2.11`）；省略安装最新版 |
 | `-y, --yes` | 全自动模式，不交互（端口用默认、令牌自动生成） |
@@ -235,10 +235,10 @@ FRPCMGR_API_TOKEN=$(openssl rand -hex 32) ./frpcmgrd serve
 
 ### 方式四：OpenWrt 路由器（一个 all ipk，到处装）
 
-到 [Releases](https://github.com/mia-clark/frpc-manager/releases) 下载**唯一**的 `frpcmgrd_<版本>-1_all.ipk`（不分架构），上传到路由器后：
+到 [Releases](https://github.com/mia-clark/frpc-manager/releases) 下载**唯一**的 `luci-app-frpcmgrd_<版本>-1_all.ipk`（不分架构），上传到路由器后：
 
 ```sh
-opkg install frpcmgrd_<版本>-1_all.ipk
+opkg install luci-app-frpcmgrd_<版本>-1_all.ipk
 ```
 
 装的是 **LuCI web 壳子**，全程网页操作：打开 **LuCI → 服务 → FRPC Manager** → 点「下载/更新核心」（自动识别 CPU、**优先走自建源**，公共代理 + GitHub 直连兜底）→ 填端口/登录令牌 → 启动 → 点「打开管理后台」进 frpcmgrd 自带界面管隧道。由 **procd** 守护、配置走 **UCI**。也可纯命令行：`frpcmgrd-fetch latest`。
@@ -296,7 +296,7 @@ fmc help            # 查看全部命令
 | 变量 | 必填 | 默认 | 说明 |
 |---|---|:---:|---|
 | `FRPCMGR_API_TOKEN` | ✓ | — | API 鉴权令牌（登录后台的凭证） |
-| `FRPCMGR_HTTP_ADDR` |   | `:8080` | 监听地址，格式 `:端口` |
+| `FRPCMGR_HTTP_ADDR` |   | `:18080` | 监听地址，格式 `:端口` |
 | `FRPCMGR_DATA_DIR`  |   | `/data` | 数据根目录 |
 | `FRPCMGR_CORS_ORIGINS` |   | `*` | 逗号分隔的 CORS 白名单 |
 | `FRPCMGR_LOG_LEVEL` |   | `info` | `trace`/`debug`/`info`/`warn`/`error` |
