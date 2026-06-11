@@ -179,6 +179,18 @@ jobs:
           go-version: '1.25'
           cache: true
 
+      # 先生成 OpenWrt ipk（all 包不含二进制，只需版本号 + openwrt/ 源文件）。
+      # 放到 dist/ 之外的 openwrt-dist/（goreleaser --clean 只清 dist/，不动它），
+      # 再由下面 goreleaser 的 release.extra_files 与二进制/tar 包一并上传——
+      # 这样 ipk 就融进 goreleaser 这一次发布打包里，无需独立 job。
+      - name: Build OpenWrt ipk (all)
+        run: |
+          go install github.com/goreleaser/nfpm/v2/cmd/nfpm@latest
+          export PATH="$(go env GOPATH)/bin:$PATH"
+          chmod +x openwrt/build-ipk.sh
+          ./openwrt/build-ipk.sh --version "${{ needs.bump.outputs.version }}" --out openwrt-dist
+          ls -la openwrt-dist
+
       - uses: goreleaser/goreleaser-action@v6
         with:
           version: '~> v2'
@@ -247,52 +259,4 @@ jobs:
           echo "## Pushed images" >> "$GITHUB_STEP_SUMMARY"
           echo '```' >> "$GITHUB_STEP_SUMMARY"
           echo "${{ steps.meta.outputs.tags }}" >> "$GITHUB_STEP_SUMMARY"
-          echo '```' >> "$GITHUB_STEP_SUMMARY"
-
-  # ---------------------------------------------------------------------------
-  # Job 4 — OpenWrt ipk 包（单个 all 架构）：只装壳子，安装时由 frpcmgrd-fetch
-  #          按本机 CPU 联网拉对应二进制。逻辑全在 openwrt/（build-ipk.sh + nfpm.yaml）。
-  #          needs goreleaser 有两层原因（勿轻易移除）：
-  #            1) goreleaser 创建 GitHub Release 对象，本 job 的 gh release upload 需它已存在；
-  #            2) 用户设备装 ipk 时，frpcmgrd-fetch 要拉 goreleaser 上传的各架构 tar.gz。
-  # ---------------------------------------------------------------------------
-  openwrt-ipk:
-    name: Build & upload OpenWrt ipk (all)
-    needs: [bump, goreleaser]
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          ref: ${{ needs.bump.outputs.tag }}
-
-      - uses: actions/setup-go@v5
-        with:
-          go-version: '1.25'
-          cache: true
-
-      - name: Install nfpm
-        run: |
-          go install github.com/goreleaser/nfpm/v2/cmd/nfpm@latest
-          echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
-
-      - name: Build ipk (all)
-        env:
-          VERSION: ${{ needs.bump.outputs.version }}
-        run: |
-          chmod +x openwrt/build-ipk.sh
-          ./openwrt/build-ipk.sh --out dist-ipk --version "$VERSION"
-          ls -la dist-ipk
-
-      - name: Upload ipk to release
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          gh release upload "${{ needs.bump.outputs.tag }}" dist-ipk/*.ipk \
-            --repo "${{ github.repository }}" --clobber
-
-      - name: Summary
-        run: |
-          echo "## OpenWrt ipk package (all-arch)" >> "$GITHUB_STEP_SUMMARY"
-          echo '```' >> "$GITHUB_STEP_SUMMARY"
-          ls -1 dist-ipk >> "$GITHUB_STEP_SUMMARY"
           echo '```' >> "$GITHUB_STEP_SUMMARY"

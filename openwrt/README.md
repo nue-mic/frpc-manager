@@ -121,11 +121,11 @@ VERSION=1.2.34 ./openwrt/build-ipk.sh --out dist-ipk
 ./openwrt/build-ipk.sh --version 1.2.34
 ```
 
-参数：`--version`（必填，须与 GitHub Release 一致，决定 `frpcmgrd-fetch` 默认拉哪个版本）、`--release`（默认 1）、`--out`（默认 dist-ipk）。产出单个 `frpcmgrd_<版本>-1_all.ipk`。
+参数：`--version`（必填，须与 GitHub Release 一致，决定 `frpcmgrd-fetch` 默认拉哪个版本）、`--release`（默认 1）、`--out`（默认 dist-ipk）。产出单个 `frpcmgrd_<版本>-1_all.ipk`。本地也可 `make ipk VERSION=1.2.34`。
 
 > Windows/git-bash 也能跑（内置 `cygpath` 适配）；CI 在 Linux 上无此转换。
 
-发布自动化：[.github/workflows/release.yml](../.github/workflows/release.yml) 的 `openwrt-ipk` job（`needs: [bump, goreleaser]`）装 nfpm → `build-ipk.sh` 出单个 all 包 → `gh release upload` 传回同一个 Release。`needs goreleaser` 是为确保 Release 已建好（`frpcmgrd-fetch` 在用户设备安装时要从该 Release 拉各架构 tar.gz）。
+**发布自动化（已融进 goreleaser，无独立 job）**：CI 的 `goreleaser` job 在跑 goreleaser 之前先用 `build-ipk.sh` 把 all 包打到 `openwrt-dist/`，再由 goreleaser 的 `release.extra_files`（见 [.goreleaser.yml](../.goreleaser.yml)）与各架构二进制/tar 包**一并上传到同一个 Release**。所以每次发布的打包天然包含这个 ipk。
 
 ---
 
