@@ -10,7 +10,7 @@
 [ -x /etc/init.d/frpcmgrd ] && /etc/init.d/frpcmgrd enable >/dev/null 2>&1
 
 # 立即刷新 LuCI 菜单/模块缓存并重载 rpcd，让 FRPC Manager 菜单与 ACL 立即出现
-# （opkg 场景；apk 场景由 /etc/uci-defaults/40_luci-frpcmgr 在下次启动兜底）
+# （opkg 场景；apk 场景由 /etc/uci-defaults/40_luci-frpcmgrd 在下次启动兜底）
 rm -f  /tmp/luci-indexcache* 2>/dev/null
 rm -rf /tmp/luci-modulecache 2>/dev/null
 /etc/init.d/rpcd reload >/dev/null 2>&1
@@ -20,7 +20,7 @@ _addr="$(uci -q get frpcmgrd.main.http_addr 2>/dev/null)"
 
 echo ""
 echo "==================================================================="
-echo " luci-app-frpcmgr 已安装 ✓（web 壳子）"
+echo " luci-app-frpcmgrd 已安装 ✓（web 壳子）"
 echo "-------------------------------------------------------------------"
 echo " 打开路由器后台 → 服务(Services) → FRPC Manager："
 echo "   ① 下载 / 更新核心二进制"

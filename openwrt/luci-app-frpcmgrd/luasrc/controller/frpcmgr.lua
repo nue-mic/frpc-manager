@@ -1,5 +1,5 @@
 -- =============================================================================
--- luci-app-frpcmgr — frpcmgrd 的 OpenWrt LuCI「web 壳子」控制器
+-- luci-app-frpcmgrd — frpcmgrd 的 OpenWrt LuCI「web 壳子」控制器
 --
 --   在路由器后台网页里：配端口/令牌、下载/更新核心二进制、启停服务、看版本状态、
 --   一键打开 frpcmgrd 自带的隧道管理后台（:端口）。

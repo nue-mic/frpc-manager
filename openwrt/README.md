@@ -114,14 +114,22 @@ logread -e frpcmgrd -f            # 实时日志
 frpcmgrd-fetch latest            # 查最新版（经自建源/GitHub API）并安装
 frpcmgrd-fetch 1.2.40            # 或拉指定版本；不带参数=随包 VERSION 记录的版本
 # 或重装新版 all ipk（postinst 会自动拉新版二进制）：
+# 旧版包名为 frpcmgrd；新包已声明 Replaces/Conflicts: frpcmgrd，opkg(≤24.10) 通常会
+# 自动移除旧包并顶替。若 opkg 报冲突/残留，「先卸再装」最稳（prerm 会先停服+disable）：
+opkg remove frpcmgrd 2>/dev/null    # 从旧包名升级时执行；全新安装可跳过
 opkg install luci-app-frpcmgrd_<新版本>-1_all.ipk
+opkg files luci-app-frpcmgrd | grep -E 'init.d/frpcmgrd|sbin/frpcmgrd-fetch'  # 核对共有文件已被新包跟踪
 
 # 卸载（停服 + 删壳子；自取的 /usr/bin/frpcmgrd 与 /usr/lib/frpcmgrd 由 postrm 清理）
-opkg remove frpcmgrd
+opkg remove luci-app-frpcmgrd
 # 连配置也清掉：
-opkg remove frpcmgrd && rm -f /etc/config/frpcmgrd
+opkg remove luci-app-frpcmgrd && rm -f /etc/config/frpcmgrd
 # 数据目录需手动删（默认 /usr/lib/frpcmgrd 已随 postrm 删除，自定义路径请自行清理）
 ```
+
+> 升级保留配置：`/etc/config/frpcmgrd` 是 conffile，opkg 升级时保留你改过的 token/端口，新版默认配置写到 `/etc/config/frpcmgrd-opkg`（要用新默认就手动对比合并后删 `-opkg`）。
+>
+> 上述 opkg 顶替仅适用 **opkg（OpenWrt ≤24.10）**；25.12+ 默认 apk、不读 ipk，请按文末「OpenWrt 25.12 / apk」段过渡。
 
 > **不要用 Web 端「一键自更新」**（默认已关）：它会覆盖二进制，与包语义冲突。OpenWrt 上用 `frpcmgrd-fetch` 或重装 ipk 升级。
 
@@ -157,12 +165,12 @@ openwrt/
 │   │   ├── init.d/frpcmgrd          procd 服务脚本（读 UCI → 注入 FRPCMGR_* 环境变量）
 │   │   └── config/frpcmgrd          UCI 默认配置
 │   └── usr/sbin/frpcmgrd-fetch      按 CPU 联网拉二进制（自建源首选 + 公共代理兜底 + 空间预检）
-├── luci-app-frpcmgr/               LuCI web 壳子
+├── luci-app-frpcmgrd/              LuCI web 壳子
 │   ├── luasrc/controller/frpcmgr.lua   JSON 动作：info/save/download/control
 │   ├── luasrc/view/frpcmgr/main.htm    页面：状态 + 下载核心 + 配置 + 启停 + 开后台
 │   └── root/
-│       ├── usr/share/rpcd/acl.d/luci-app-frpcmgr.json  ACL
-│       └── etc/uci-defaults/40_luci-frpcmgr            刷新 LuCI 菜单缓存
+│       ├── usr/share/rpcd/acl.d/luci-app-frpcmgrd.json  ACL
+│       └── etc/uci-defaults/40_luci-frpcmgrd           刷新 LuCI 菜单缓存
 └── scripts/
     ├── postinst.sh                 只装壳子（不下载）+ enable + 刷新 LuCI 菜单 + 引导
     ├── prerm.sh                    卸载/升级前 stop+disable
@@ -181,7 +189,7 @@ OpenWrt 25.12（2026-03 发布）默认包管理器换成 **apk**（APKv3 + ADB 
 
 ## 后续增强
 
-- ✅ **luci-app-frpcmgr（瘦壳子）** — 已实现并打进 all 包：LuCI 里配端口/令牌、网页下载/更新核心、启停、显示版本/状态、一键打开 frpcmgrd 自带后台。
+- ✅ **luci-app-frpcmgrd（瘦壳子）** — 已实现并打进 all 包：LuCI 里配端口/令牌、网页下载/更新核心、启停、显示版本/状态、一键打开 frpcmgrd 自带后台。
 - **原生 apk（APKv3）产线**（未实现）：需引入 OpenWrt SDK。
 - **全功能 program_manager**（未实现）：多版本列表/切换/删除、应用自更新（参考 luci-app-frpc）。
 

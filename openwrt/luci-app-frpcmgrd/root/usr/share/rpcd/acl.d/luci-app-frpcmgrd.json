@@ -1,5 +1,5 @@
 {
-	"luci-app-frpcmgr": {
+	"luci-app-frpcmgrd": {
 		"description": "Grant access to frpcmgrd web shell (config / fetch core / service control)",
 		"read": {
 			"uci": [ "frpcmgrd" ]

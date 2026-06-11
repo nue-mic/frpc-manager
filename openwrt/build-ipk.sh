@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # =============================================================================
-# build-ipk.sh — 生成单个「all 架构」的 frpcmgrd OpenWrt .ipk
+# build-ipk.sh — 生成单个「all 架构」的 luci-app-frpcmgrd OpenWrt .ipk
 #
 #   该包不含 CPU 二进制，只装壳子（procd 脚本 + UCI 配置 + frpcmgrd-fetch）。
 #   一个包到处可装，安装时由 postinst 调 frpcmgrd-fetch 按本机 CPU 联网下载
@@ -69,10 +69,10 @@ POSTINST="$ROOT_DIR/openwrt/scripts/postinst.sh"
 PRERM="$ROOT_DIR/openwrt/scripts/prerm.sh"
 POSTRM="$ROOT_DIR/openwrt/scripts/postrm.sh"
 # LuCI web 壳子
-LUA_CTRL="$ROOT_DIR/openwrt/luci-app-frpcmgr/luasrc/controller/frpcmgr.lua"
-LUA_VIEW="$ROOT_DIR/openwrt/luci-app-frpcmgr/luasrc/view/frpcmgr/main.htm"
-ACL_LUCI="$ROOT_DIR/openwrt/luci-app-frpcmgr/root/usr/share/rpcd/acl.d/luci-app-frpcmgr.json"
-UCIDEF_LUCI="$ROOT_DIR/openwrt/luci-app-frpcmgr/root/etc/uci-defaults/40_luci-frpcmgr"
+LUA_CTRL="$ROOT_DIR/openwrt/luci-app-frpcmgrd/luasrc/controller/frpcmgr.lua"
+LUA_VIEW="$ROOT_DIR/openwrt/luci-app-frpcmgrd/luasrc/view/frpcmgr/main.htm"
+ACL_LUCI="$ROOT_DIR/openwrt/luci-app-frpcmgrd/root/usr/share/rpcd/acl.d/luci-app-frpcmgrd.json"
+UCIDEF_LUCI="$ROOT_DIR/openwrt/luci-app-frpcmgrd/root/etc/uci-defaults/40_luci-frpcmgrd"
 for f in "$INITD_SRC" "$CONFIG_SRC" "$FETCH_SRC" "$POSTINST" "$PRERM" "$POSTRM" \
          "$LUA_CTRL" "$LUA_VIEW" "$ACL_LUCI" "$UCIDEF_LUCI" "$NFPM_CONF"; do
 	[ -f "$f" ] || die "缺少随包文件: $f"
