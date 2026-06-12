@@ -1444,11 +1444,11 @@ const Configs: React.FC = () => {
                               title: '名称',
                               dataIndex: 'name',
                               render: (_, record) => (
-                                <Space size={6}>
+                                <Space size={6} style={{ flexWrap: 'nowrap' }}>
                                   {record._kind === 'visitor'
                                     ? <Tag color="purple" bordered={false}>访客</Tag>
                                     : <Tag color="geekblue" bordered={false}>代理</Tag>}
-                                  <Text>{record.name}</Text>
+                                  <Text style={{ whiteSpace: 'nowrap' }}>{record.name}</Text>
                                 </Space>
                               )
                             },
@@ -1459,15 +1459,20 @@ const Configs: React.FC = () => {
                             },
                             {
                               title: '本地 / 绑定',
+                              width: 210,
                               render: (_, record) => {
-                                if (record._kind === 'visitor') {
-                                  return <Text type="secondary">{record.bindAddr || '127.0.0.1'}:{record.bindPort ?? '-'}</Text>;
-                                }
+                                const val = record._kind === 'visitor'
+                                  ? `${record.bindAddr || '127.0.0.1'}:${record.bindPort ?? '-'}`
+                                  : `${record.local_ip || record.localIP || '-'}:${record.local_port || record.localPort || '-'}`;
+                                // 限宽 + 省略号；hover 出完整值；尾部一键复制（复制完整值，非截断后的）。
                                 return (
-                                  <Text type="secondary">
-                                    {record.local_ip || record.localIP || '-'}
-                                    :
-                                    {record.local_port || record.localPort || '-'}
+                                  <Text
+                                    type="secondary"
+                                    style={{ maxWidth: 188, fontSize: 13 }}
+                                    ellipsis={{ tooltip: val }}
+                                    copyable={{ text: val, tooltips: ['复制', '已复制'] }}
+                                  >
+                                    {val}
                                   </Text>
                                 );
                               }
