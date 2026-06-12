@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef } from 'react';
-import type { ComponentProps, DragEvent } from 'react';
+import type { ComponentProps, DragEvent, CSSProperties } from 'react';
 import {
   Card, Row, Col, Button, Badge, Space, Typography, Popconfirm,
   Tabs, Form, Input, InputNumber, Switch, Table, Drawer, Modal,
@@ -27,6 +27,7 @@ import {
   ApiOutlined,
   HolderOutlined,
   SwapOutlined,
+  UserOutlined,
 } from '@ant-design/icons';
 
 const LIST_COMPACT_KEY = 'frpmgr_configs_compact';
@@ -1393,19 +1394,42 @@ const Configs: React.FC = () => {
                             },
                             {
                               title: '远端 / 服务名',
+                              width: 200,
                               render: (_, record) => {
+                                // 主信息（服务名/域名/端口）+ 访客的次要信息（用户名）分两行紧凑展示；
+                                // 整列限宽 + 省略号，hover 出完整详情，避免长串撑爆表格。
+                                let primary = '—';
+                                let sub = '';
                                 if (record._kind === 'visitor') {
-                                  return <Text type="secondary">{record.serverName || '-'}{record.serverUser ? ` (用户: ${record.serverUser})` : ''}</Text>;
-                                }
-                                if (record.type === 'http' || record.type === 'https') {
+                                  primary = record.serverName || '—';
+                                  sub = record.serverUser || '';
+                                } else if (record.type === 'http' || record.type === 'https') {
                                   const domains = record.customDomains;
-                                  return <Text type="secondary">{domains && domains.length ? domains.join(', ') : (record.subdomain ? `*.${record.subdomain}` : '—')}</Text>;
-                                }
-                                if (record.type === 'tcpmux') {
+                                  primary = domains && domains.length ? domains.join(', ') : (record.subdomain ? `*.${record.subdomain}` : '—');
+                                } else if (record.type === 'tcpmux') {
                                   const domains = record.customDomains;
-                                  return <Text type="secondary">{domains && domains.length ? domains.join(', ') : (record.multiplexer || '—')}</Text>;
+                                  primary = domains && domains.length ? domains.join(', ') : (record.multiplexer || '—');
+                                } else {
+                                  primary = record.remotePort != null ? String(record.remotePort) : '—';
                                 }
-                                return <Text>{record.remotePort ?? '-'}</Text>;
+                                const tip = record._kind === 'visitor'
+                                  ? `服务名：${primary}${sub ? `\n用户：${sub}` : ''}`
+                                  : primary;
+                                const ellip: CSSProperties = { overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' };
+                                return (
+                                  <Tooltip title={<span style={{ whiteSpace: 'pre-line' }}>{tip}</span>} styles={{ root: { maxWidth: 360 } }}>
+                                    <div style={{ maxWidth: 200, lineHeight: 1.25 }}>
+                                      <div style={ellip}><Text style={{ fontSize: 13 }}>{primary}</Text></div>
+                                      {sub && (
+                                        <div style={ellip}>
+                                          <Text type="secondary" style={{ fontSize: 11 }}>
+                                            <UserOutlined style={{ marginRight: 3, opacity: 0.65 }} />{sub}
+                                          </Text>
+                                        </div>
+                                      )}
+                                    </div>
+                                  </Tooltip>
+                                );
                               }
                             },
                             {
