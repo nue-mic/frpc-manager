@@ -25,6 +25,9 @@ const (
 	CodeProxyNotFound   ErrorCode = "proxy_not_found"
 	CodeProxyExists     ErrorCode = "proxy_already_exists"
 	CodeUpstreamFailure ErrorCode = "upstream_failure"
+	// CodeVisitorPortConflict means another instance's visitor of the same
+	// protocol family already listens on the same bindAddr:bindPort.
+	CodeVisitorPortConflict ErrorCode = "visitor_port_conflict"
 )
 
 // Envelope is the JSON shape returned for any error response.

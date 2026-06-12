@@ -394,6 +394,101 @@ func (m *Manager) ProfilesDir() string { return m.opts.ProfilesDir }
 // the export endpoint so a backup carries the operator's branding too.
 func (m *Manager) MetaPath() string { return m.opts.MetaPath }
 
+// VisitorConflict describes an existing visitor whose local listener collides
+// with a candidate one (same protocol family + bindPort + overlapping addr).
+type VisitorConflict struct {
+	ConfigID   string
+	ConfigName string
+	Name       string
+	Type       string
+	BindAddr   string
+	BindPort   int
+}
+
+// visitorProto maps a visitor type to its local-listener protocol family.
+// STCP/XTCP listen on TCP, SUDP on UDP (frp client/visitor/{stcp,xtcp,sudp}.go),
+// so STCP and XTCP on the same addr:port DO collide, while SUDP is independent.
+func visitorProto(t string) string {
+	switch strings.ToLower(strings.TrimSpace(t)) {
+	case "stcp", "xtcp":
+		return "tcp"
+	case "sudp":
+		return "udp"
+	default:
+		return ""
+	}
+}
+
+func normBindAddr(a string) string {
+	if a = strings.TrimSpace(a); a == "" {
+		return "0.0.0.0"
+	}
+	return a
+}
+
+func isWildcardAddr(a string) bool { return a == "0.0.0.0" || a == "::" || a == "*" }
+
+// addrsOverlap reports whether two bind addresses on the same port collide.
+// A wildcard (0.0.0.0 / :: / empty) binds every interface so it overlaps any
+// address; two distinct specific addresses do not collide.
+func addrsOverlap(a, b string) bool {
+	a, b = normBindAddr(a), normBindAddr(b)
+	return a == b || isWildcardAddr(a) || isWildcardAddr(b)
+}
+
+// VisitorBindConflict scans every instance's visitors for one whose local
+// listener would collide with the candidate (same protocol family + bindPort +
+// overlapping bindAddr), excluding the visitor identified by excludeID +
+// excludeName (the one being edited). bindPort <= 0 means "no local listener"
+// and never conflicts. Returns nil when there is no conflict.
+func (m *Manager) VisitorBindConflict(excludeID, excludeName, vType, bindAddr string, bindPort int) *VisitorConflict {
+	if bindPort <= 0 {
+		return nil
+	}
+	proto := visitorProto(vType)
+	if proto == "" {
+		return nil
+	}
+
+	type pair struct {
+		id   string
+		inst *instance
+	}
+	m.mu.RLock()
+	pairs := make([]pair, 0, len(m.instances))
+	for id, inst := range m.instances {
+		pairs = append(pairs, pair{id, inst})
+	}
+	m.mu.RUnlock()
+
+	for _, pr := range pairs {
+		data := pr.inst.Data()
+		if data == nil {
+			continue
+		}
+		for _, p := range data.Proxies {
+			if !p.IsVisitor() || p.BindPort != bindPort {
+				continue
+			}
+			if pr.id == excludeID && p.Name == excludeName {
+				continue
+			}
+			if visitorProto(p.Type) != proto || !addrsOverlap(p.BindAddr, bindAddr) {
+				continue
+			}
+			name := data.Name()
+			if name == "" {
+				name = pr.id
+			}
+			return &VisitorConflict{
+				ConfigID: pr.id, ConfigName: name, Name: p.Name,
+				Type: p.Type, BindAddr: normBindAddr(p.BindAddr), BindPort: p.BindPort,
+			}
+		}
+	}
+	return nil
+}
+
 // CombinedLogPath 返回所有 frpc 实例共用的合并日志文件的绝对路径。
 func (m *Manager) CombinedLogPath() string {
 	return filepath.Join(m.opts.LogsDir, CombinedLogFileName)

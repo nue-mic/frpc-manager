@@ -885,7 +885,7 @@ const Configs: React.FC = () => {
           type: t,
           secretKey: values.secretKey,
           serverName: values.serverName,
-          bindAddr: values.bindAddr || '127.0.0.1',
+          bindAddr: values.bindAddr || '0.0.0.0',
           bindPort: values.bindPort,
         };
         if (values.serverUser) v.serverUser = values.serverUser;
@@ -908,7 +908,7 @@ const Configs: React.FC = () => {
         const payload: Record<string, unknown> = {
           name: values.name,
           type: t,
-          localIP: values.localIP || '127.0.0.1',
+          localIP: values.localIP || '0.0.0.0',
           localPort: values.localPort,
         };
         // 通用 / TCP / UDP
@@ -972,6 +972,26 @@ const Configs: React.FC = () => {
     return `${role}-${id}`;
   };
 
+  // 生成一个专业、强随机的共享密钥（crypto 强随机）：
+  // - 去掉易混字符（大写无 I O、小写无 l o、数字无 0 1）；
+  // - 首尾只用「大写或数字」（不以小写字母开头/结尾）；中间用全字符集；
+  // - 默认 32 位，观感接近大厂 API key / 强密钥。
+  const genSecretKey = (len = 32): string => {
+    const upper = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
+    const lower = 'abcdefghijkmnpqrstuvwxyz';
+    const digit = '23456789';
+    const edge = upper + digit;      // 首尾候选
+    const all = upper + lower + digit;
+    const buf = new Uint32Array(len);
+    (window.crypto || (window as any).msCrypto).getRandomValues(buf);
+    let out = '';
+    for (let i = 0; i < len; i++) {
+      const pool = (i === 0 || i === len - 1) ? edge : all;
+      out += pool[buf[i] % pool.length];
+    }
+    return out;
+  };
+
   // 开启 Drawer（新建 / 编辑 / 复制）
   // asCopy=true：以「新建」模式打开，但用源规则数据预填表单、名称换成随机名，
   // 实现「复制添加」——减少重复输入。
@@ -986,7 +1006,7 @@ const Configs: React.FC = () => {
         name: asCopy ? genRuleName() : proxyItem.name,
         type: proxyItem.type || 'tcp',
         // proxy / server-side 字段
-        localIP: proxyItem.localIP || '127.0.0.1',
+        localIP: proxyItem.localIP || '0.0.0.0',
         localPort: proxyItem.localPort,
         remotePort: proxyItem.remotePort,
         customDomains: proxyItem.customDomains ? proxyItem.customDomains.join(',') : '',
@@ -1007,7 +1027,7 @@ const Configs: React.FC = () => {
         // visitor 字段
         serverName: proxyItem.serverName,
         serverUser: proxyItem.serverUser,
-        bindAddr: proxyItem.bindAddr || '127.0.0.1',
+        bindAddr: proxyItem.bindAddr || '0.0.0.0',
         bindPort: proxyItem.bindPort,
         useEncryption: proxyItem.transport?.useEncryption ?? false,
         useCompression: proxyItem.transport?.useCompression ?? false,
@@ -1024,8 +1044,8 @@ const Configs: React.FC = () => {
       proxyForm.setFieldsValue({
         kind: initialKind,
         type: initialKind === 'visitor' ? 'stcp' : 'tcp',
-        localIP: '127.0.0.1',
-        bindAddr: '127.0.0.1',
+        localIP: '0.0.0.0',
+        bindAddr: '0.0.0.0',
         xtcpProtocol: 'quic',
         allowUsers: '*',
       });
@@ -1438,7 +1458,7 @@ const Configs: React.FC = () => {
                               title: '本地 / 绑定',
                               render: (_, record) => {
                                 if (record._kind === 'visitor') {
-                                  return <Text type="secondary">{record.bindAddr || '127.0.0.1'}:{record.bindPort ?? '-'}</Text>;
+                                  return <Text type="secondary">{record.bindAddr || '0.0.0.0'}:{record.bindPort ?? '-'}</Text>;
                                 }
                                 return (
                                   <Text type="secondary">
@@ -2197,7 +2217,16 @@ const Configs: React.FC = () => {
                     name="secretKey"
                     rules={[{ required: true, message: '访客必须填写与服务端一致的共享密钥' }]}
                   >
-                    <Input placeholder="与对端服务端代理相同的 secretKey" />
+                    <Input
+                      placeholder="与对端服务端代理相同的 secretKey"
+                      addonAfter={(
+                        <Tooltip title="随机生成强密钥（首尾大写/数字，去易混字符）">
+                          <a onClick={() => proxyForm.setFieldsValue({ secretKey: genSecretKey() })}>
+                            <ThunderboltOutlined /> 随机
+                          </a>
+                        </Tooltip>
+                      )}
+                    />
                   </Form.Item>
                   <Row gutter={12}>
                     <Col span={14}>
@@ -2217,8 +2246,8 @@ const Configs: React.FC = () => {
                   </Row>
                   <Row gutter={12}>
                     <Col span={14}>
-                      <Form.Item label="本地绑定地址 bindAddr" name="bindAddr" initialValue="127.0.0.1">
-                        <Input placeholder="127.0.0.1" />
+                      <Form.Item label="本地绑定地址 bindAddr" name="bindAddr" initialValue="0.0.0.0">
+                        <Input placeholder="0.0.0.0" />
                       </Form.Item>
                     </Col>
                     <Col span={10}>
@@ -2300,8 +2329,8 @@ const Configs: React.FC = () => {
               const usingPlugin = !!getFieldValue('pluginName');
               return (
                 <>
-                  <Form.Item label="本地监听 IP" name="localIP" initialValue="127.0.0.1">
-                    <Input placeholder="127.0.0.1" disabled={usingPlugin} />
+                  <Form.Item label="本地监听 IP" name="localIP" initialValue="0.0.0.0">
+                    <Input placeholder="0.0.0.0" disabled={usingPlugin} />
                   </Form.Item>
                   <Form.Item
                     label="本地映射端口"
@@ -2374,7 +2403,16 @@ const Configs: React.FC = () => {
                 return (
                   <>
                     <Form.Item label="共享密钥 secretKey" name="secretKey" rules={[{ required: true, message: '安全代理必须设置 secretKey' }]}>
-                      <Input placeholder="访客端与服务端共享密钥" />
+                      <Input
+                        placeholder="访客端与服务端共享密钥"
+                        addonAfter={(
+                          <Tooltip title="随机生成强密钥（首尾大写/数字，去易混字符）">
+                            <a onClick={() => proxyForm.setFieldsValue({ secretKey: genSecretKey() })}>
+                              <ThunderboltOutlined /> 随机
+                            </a>
+                          </Tooltip>
+                        )}
+                      />
                     </Form.Item>
                     <Form.Item label="允许访问的用户 allowUsers (逗号分隔，可选)" name="allowUsers">
                       <Input placeholder="alice,bob 或 *" />

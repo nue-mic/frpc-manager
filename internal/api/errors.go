@@ -23,9 +23,10 @@ const (
 	CodeConfigNotFound  = apiresp.CodeConfigNotFound
 	CodeConfigExists    = apiresp.CodeConfigExists
 	CodeInvalidState    = apiresp.CodeInvalidState
-	CodeProxyNotFound   = apiresp.CodeProxyNotFound
-	CodeProxyExists     = apiresp.CodeProxyExists
-	CodeUpstreamFailure = apiresp.CodeUpstreamFailure
+	CodeProxyNotFound       = apiresp.CodeProxyNotFound
+	CodeProxyExists         = apiresp.CodeProxyExists
+	CodeUpstreamFailure     = apiresp.CodeUpstreamFailure
+	CodeVisitorPortConflict = apiresp.CodeVisitorPortConflict
 )
 
 func WriteJSON(w http.ResponseWriter, status int, v any) {

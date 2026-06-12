@@ -200,8 +200,14 @@ paths:
     post:
       tags: [proxies]
       summary: Add proxy or visitor
+      description: >
+        Visitors are checked for a cross-instance local-port conflict: another
+        instance's visitor of the same protocol family (STCP/XTCP=TCP, SUDP=UDP)
+        on the same bindAddr:bindPort yields 409 visitor_port_conflict.
       parameters: [ { in: path, name: id, required: true, schema: { type: string } } ]
-      responses: { '201': { description: Created } }
+      responses:
+        '201': { description: Created }
+        '409': { description: 'proxy_already_exists, or visitor_port_conflict (details: config_id/config_name/name/type/bind_addr/bind_port)' }
   /api/v1/configs/{id}/proxies/reorder:
     post:
       tags: [proxies]
@@ -278,7 +284,10 @@ paths:
       parameters:
         - { in: path, name: id, required: true, schema: { type: string } }
         - { in: path, name: name, required: true, schema: { type: string } }
-      responses: { '204': { description: OK } }
+      responses:
+        '204': { description: OK }
+        '404': { description: proxy_not_found }
+        '409': { description: 'visitor_port_conflict — another instance''s same-family visitor uses this bindAddr:bindPort' }
     delete:
       tags: [proxies]
       summary: Delete proxy
