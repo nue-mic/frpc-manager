@@ -237,6 +237,18 @@ paths:
         '200': { description: 'OK — { objects: [{ key, size, modified }], truncated }' }
         '404': { description: Channel not found }
         '502': { description: List failed }
+  /api/v1/backup/channels/{id}/download:
+    get:
+      tags: [backup]
+      summary: Download a backup object as a file attachment
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+        - { name: key, in: query, required: true, schema: { type: string } }
+      responses:
+        '200': { description: 'application/zip attachment' }
+        '400': { description: Missing key }
+        '404': { description: Channel not found }
+        '502': { description: Download failed }
   /api/v1/backup/channels/{id}/restore:
     post:
       tags: [backup]

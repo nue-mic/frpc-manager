@@ -3,8 +3,10 @@ package api
 import (
 	"context"
 	"errors"
+	"fmt"
 	"log/slog"
 	"net/http"
+	"path"
 	"sort"
 	"strconv"
 	"strings"
@@ -333,6 +335,37 @@ func (h *BackupHandler) Restore(w http.ResponseWriter, r *http.Request) {
 	h.log.Warn("restored from backup object",
 		slog.String("channel", ch.Name), slog.String("key", body.Key))
 	WriteJSON(w, http.StatusOK, res)
+}
+
+// Download GET /backup/channels/{id}/download?key= — stream a backup object to
+// the browser as a file attachment (the front-end fetches it as a blob so the
+// Bearer header is sent).
+func (h *BackupHandler) Download(w http.ResponseWriter, r *http.Request) {
+	ch, ok := h.m.GetBackupChannel(pathID(r))
+	if !ok {
+		WriteError(w, http.StatusNotFound, CodeNotFound, "渠道不存在", nil)
+		return
+	}
+	key := r.URL.Query().Get("key")
+	if strings.TrimSpace(key) == "" {
+		WriteError(w, http.StatusBadRequest, CodeBadRequest, "key 必填", nil)
+		return
+	}
+	up, err := backup.NewUploader(ch)
+	if err != nil {
+		WriteError(w, http.StatusBadRequest, CodeBadRequest, "渠道配置无效："+err.Error(), nil)
+		return
+	}
+	ctx, cancel := context.WithTimeout(r.Context(), restoreTimeout)
+	defer cancel()
+	data, err := up.Get(ctx, key)
+	if err != nil {
+		WriteError(w, http.StatusBadGateway, CodeUpstreamFailure, "下载备份失败："+err.Error(), nil)
+		return
+	}
+	w.Header().Set("Content-Type", "application/zip")
+	w.Header().Set("Content-Disposition", fmt.Sprintf(`attachment; filename="%s"`, path.Base(key)))
+	_, _ = w.Write(data)
 }
 
 // ---- schedules ----

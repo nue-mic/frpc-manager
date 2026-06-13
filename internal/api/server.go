@@ -87,6 +87,7 @@ func NewRouter(d Deps) http.Handler {
 		r.Delete("/api/v1/backup/channels/{id}", bkp.DeleteChannel)
 		r.Post("/api/v1/backup/channels/{id}/test", bkp.TestChannel)
 		r.Get("/api/v1/backup/channels/{id}/objects", bkp.ListObjects)
+		r.Get("/api/v1/backup/channels/{id}/download", bkp.Download)
 		r.Post("/api/v1/backup/channels/{id}/restore", bkp.Restore)
 		r.Get("/api/v1/backup/schedules", bkp.ListSchedules)
 		r.Post("/api/v1/backup/schedules", bkp.CreateSchedule)

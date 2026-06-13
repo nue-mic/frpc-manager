@@ -28,6 +28,7 @@ import {
   EditOutlined,
   DeleteOutlined,
   RollbackOutlined,
+  DownloadOutlined,
 } from '@ant-design/icons';
 import {
   listChannels,
@@ -45,6 +46,7 @@ import {
   runSchedule,
   listChannelObjects,
   restoreFromChannel,
+  downloadChannelObject,
   type BackupChannel,
   type BackupSchedule,
   type BackupRun,
@@ -368,6 +370,27 @@ const Backup: React.FC = () => {
   const [restoreLoading, setRestoreLoading] = useState(false);
   const [restoreTruncated, setRestoreTruncated] = useState(false);
   const [restoringKey, setRestoringKey] = useState<string | null>(null);
+  const [downloadingKey, setDownloadingKey] = useState<string | null>(null);
+
+  const onDownload = async (obj: BackupObject) => {
+    if (!restoreChannel) return;
+    setDownloadingKey(obj.key);
+    try {
+      const blob = await downloadChannelObject(restoreChannel, obj.key);
+      const url = window.URL.createObjectURL(new Blob([blob]));
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = obj.key.split('/').pop() || 'frpcmgr-backup.zip';
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (e) {
+      message.error('下载失败：' + errMsg(e));
+    } finally {
+      setDownloadingKey(null);
+    }
+  };
 
   const loadRestoreObjects = useCallback(async (channelId: string) => {
     setRestoreLoading(true);
@@ -448,24 +471,34 @@ const Backup: React.FC = () => {
       { title: '时间', dataIndex: 'modified', width: 170, render: (n: number) => fmtTime(n) },
       {
         title: '操作',
-        width: 100,
+        width: 160,
         render: (_: unknown, o: BackupObject) => (
-          <Button
-            size="small"
-            type="primary"
-            ghost
-            danger
-            icon={<RollbackOutlined />}
-            loading={restoringKey === o.key}
-            onClick={() => onRestore(o)}
-          >
-            恢复
-          </Button>
+          <Space size={4}>
+            <Button
+              size="small"
+              icon={<DownloadOutlined />}
+              loading={downloadingKey === o.key}
+              onClick={() => onDownload(o)}
+            >
+              下载
+            </Button>
+            <Button
+              size="small"
+              type="primary"
+              ghost
+              danger
+              icon={<RollbackOutlined />}
+              loading={restoringKey === o.key}
+              onClick={() => onRestore(o)}
+            >
+              恢复
+            </Button>
+          </Space>
         ),
       },
     ],
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [restoringKey, restoreChannel]
+    [restoringKey, downloadingKey, restoreChannel]
   );
 
   // ---------- 表格列 ----------

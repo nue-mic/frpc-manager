@@ -205,3 +205,12 @@ export async function restoreFromChannel(id: string, key: string): Promise<Resto
   const r = await client.post<RestoreResult>(`/api/v1/backup/channels/${id}/restore`, { key });
   return r.data;
 }
+
+/** Fetch a backup object as a blob (Bearer header sent) for browser download. */
+export async function downloadChannelObject(id: string, key: string): Promise<Blob> {
+  const r = await client.get(`/api/v1/backup/channels/${id}/download`, {
+    params: { key },
+    responseType: 'blob',
+  });
+  return r.data as Blob;
+}
