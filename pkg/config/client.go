@@ -115,6 +115,14 @@ type ClientCommon struct {
 
 	Store v1.StoreConfig `ini:"-"`
 
+	// VirtualNetAddress is the CIDR address of this node's TUN interface in the
+	// frp virtual network (e.g. "100.86.0.2/24"). Maps to v1 virtualNet.address.
+	// ini:"-" because it only round-trips through the TOML/JSON path, never INI.
+	VirtualNetAddress string `ini:"-"`
+	// FeatureGates toggles experimental frp features (e.g. {"VirtualNet": true}).
+	// Maps to v1 featureGates. ini:"-" for the same reason as above.
+	FeatureGates map[string]bool `ini:"-"`
+
 	// Name of this config.
 	Name string `ini:"frpmgr_name"`
 	// ManualStart defines whether to start the config on system boot.
@@ -249,6 +257,9 @@ type Proxy struct {
 	FallbackTo           string `ini:"fallback_to,omitempty" visitor:"xtcp"`
 	FallbackTimeoutMs    int    `ini:"fallback_timeout_ms,omitempty" visitor:"xtcp"`
 	DisableAssistedAddrs bool   `ini:"-" xtcp:"true" visitor:"xtcp"`
+	// DestinationIP is the target virtual IP for a virtual_net visitor plugin
+	// (frp vnet). ini:"-": it only round-trips through TOML/JSON, never INI.
+	DestinationIP string `ini:"-"`
 }
 
 // GetAlias returns the alias of this proxy.

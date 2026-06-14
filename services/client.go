@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"path/filepath"
+	"runtime"
 	"time"
 
 	"github.com/fatedier/frp/client"
@@ -68,6 +69,14 @@ func NewFrpClientService(cfgFile string) (*FrpClientService, error) {
 	proxyCfgs, visitorCfgs = config.FilterClientConfigurers(result.Common, proxyCfgs, visitorCfgs)
 	proxyCfgs = config.CompleteProxyConfigurers(proxyCfgs)
 	visitorCfgs = config.CompleteVisitorConfigurers(visitorCfgs)
+
+	// vnet 前置：应用 featureGates（否则 virtualNet.address 会被校验拒绝）+ 平台守卫。
+	if err := applyFeatureGates(result.Common); err != nil {
+		return nil, err
+	}
+	if err := vnetPlatformError(runtime.GOOS, result.Common); err != nil {
+		return nil, err
+	}
 
 	_, err = validation.ValidateAllClientConfig(result.Common, proxyCfgs, visitorCfgs, nil)
 	if err != nil {
@@ -134,6 +143,14 @@ func (s *FrpClientService) Reload() error {
 	)
 	proxyCfgsForValidation = config.CompleteProxyConfigurers(proxyCfgsForValidation)
 	visitorCfgsForValidation = config.CompleteVisitorConfigurers(visitorCfgsForValidation)
+
+	// vnet 前置：reload 同样要先应用 featureGates + 平台守卫，再校验。
+	if err := applyFeatureGates(result.Common); err != nil {
+		return fmt.Errorf("%w: %v", configmgmt.ErrInvalidArgument, err)
+	}
+	if err := vnetPlatformError(runtime.GOOS, result.Common); err != nil {
+		return fmt.Errorf("%w: %v", configmgmt.ErrInvalidArgument, err)
+	}
 
 	if _, err := validation.ValidateAllClientConfig(result.Common, proxyCfgsForValidation, visitorCfgsForValidation, nil); err != nil {
 		return fmt.Errorf("%w: %v", configmgmt.ErrInvalidArgument, err)

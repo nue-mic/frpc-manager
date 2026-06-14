@@ -111,6 +111,9 @@ func ClientCommonFromV1(c *v1.ClientCommonConfig) (r ClientCommon) {
 	r.UDPPacketSize = c.UDPPacketSize
 	r.Metas = c.Metadatas
 	r.Store = c.Store
+	// VirtualNet (frp vnet, experimental).
+	r.VirtualNetAddress = c.VirtualNet.Address
+	r.FeatureGates = c.FeatureGates
 	return
 }
 
@@ -281,6 +284,12 @@ func clientVisitorBaseFromV1(c *v1.VisitorBaseConfig, out *Proxy) {
 	out.ServerName = c.ServerName
 	out.BindAddr = c.BindAddr
 	out.BindPort = c.BindPort
+	// Visitor plugin (frp vnet): carry the plugin type and, for virtual_net,
+	// its destinationIP. Other visitor plugins are not modeled yet.
+	out.Plugin = c.Plugin.Type
+	if vp, ok := c.Plugin.VisitorPluginOptions.(*v1.VirtualNetVisitorPluginOptions); ok {
+		out.DestinationIP = vp.DestinationIP
+	}
 }
 
 func ClientCommonToV1(c *ClientCommon) (r v1.ClientCommonConfig) {
@@ -382,6 +391,10 @@ func ClientCommonToV1(c *ClientCommon) (r v1.ClientCommonConfig) {
 	r.UDPPacketSize = c.UDPPacketSize
 	r.Metadatas = c.Metas
 	r.Store = c.Store
+	// VirtualNet (frp vnet, experimental). Only emit address when set so an
+	// empty config stays clean.
+	r.VirtualNet = v1.VirtualNetConfig{Address: c.VirtualNetAddress}
+	r.FeatureGates = c.FeatureGates
 	return
 }
 
@@ -652,6 +665,12 @@ func clientProxyBaseToV1(c *BaseProxyConf) (v1.ProxyBaseConfig, error) {
 			CrtPath:   c.PluginCrtPath,
 			KeyPath:   c.PluginKeyPath,
 		}
+	case consts.PluginVirtualNet:
+		// virtual_net (frp vnet) server plugin takes no parameters. We must
+		// still set ClientPluginOptions (not just Plugin.Type) because
+		// v1.TypedClientPluginOptions.MarshalJSON serializes only the inner
+		// options — a nil inner would make GET read back plugin:null.
+		r.Plugin.ClientPluginOptions = &v1.VirtualNetPluginOptions{Type: c.Plugin}
 	}
 	return r, nil
 }
@@ -700,6 +719,16 @@ func clientVisitorBaseToV1(p *Proxy) v1.VisitorBaseConfig {
 	}
 	if p.Disabled {
 		r.Enabled = new(bool)
+	}
+	// Visitor plugin (frp vnet). virtual_net is the only visitor plugin modeled.
+	if p.Plugin == consts.PluginVirtualNet {
+		r.Plugin = v1.TypedVisitorPluginOptions{
+			Type: p.Plugin,
+			VisitorPluginOptions: &v1.VirtualNetVisitorPluginOptions{
+				Type:          p.Plugin,
+				DestinationIP: p.DestinationIP,
+			},
+		}
 	}
 	return r
 }
