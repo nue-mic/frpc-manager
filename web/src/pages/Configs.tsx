@@ -4,6 +4,7 @@ import {
   Card, Row, Col, Button, Badge, Space, Typography, Popconfirm,
   Tabs, Form, Input, InputNumber, Switch, Table, Drawer, Modal,
   message, Tag, Tooltip, Empty, List, Skeleton, Radio, Select, Dropdown,
+  Alert,
   theme as antdTheme,
 } from 'antd';
 import type { MenuProps } from 'antd';
@@ -607,6 +608,9 @@ const Configs: React.FC = () => {
           tlsKeyFile: configData.transport?.tls?.keyFile || '',
           tlsTrustedCaFile: configData.transport?.tls?.trustedCaFile || '',
           tlsServerName: configData.transport?.tls?.serverName || '',
+          // 组网 (VNet)
+          virtualNetEnabled: !!(configData.featureGates?.VirtualNet),
+          virtualNetAddress: configData.virtualNet?.address || '',
         });
       }
     } catch (err) {
@@ -779,6 +783,14 @@ const Configs: React.FC = () => {
               serverName: values.tlsServerName || undefined,
             }
           },
+          // 组网 (VNet)：开启时写 featureGates.VirtualNet + virtualNet.address；
+          // 关闭时置 undefined（JSON 序列化会省略该 key，等于清除）。
+          featureGates: values.virtualNetEnabled
+            ? { ...(detailConfig?.config?.featureGates ?? {}), VirtualNet: true }
+            : undefined,
+          virtualNet: values.virtualNetEnabled
+            ? { address: values.virtualNetAddress || undefined }
+            : undefined,
           frpmgr: {
             ...(detailConfig?.config?.frpmgr ?? {}),
             name: values.name,
@@ -904,6 +916,13 @@ const Configs: React.FC = () => {
           if (values.minRetryInterval) v.minRetryInterval = values.minRetryInterval;
           if (values.fallbackTo) v.fallbackTo = values.fallbackTo;
           if (values.fallbackTimeoutMs) v.fallbackTimeoutMs = values.fallbackTimeoutMs;
+        }
+        // 组网网关 (vnet) 访客插件：携带 destinationIP（对端虚拟 IP）。
+        // 字段名严格 camelCase（destinationIP），与上游 frp 一致。
+        if (values.visitorPlugin) {
+          const plugin: Record<string, unknown> = { type: values.visitorPlugin };
+          if (values.destinationIP) plugin.destinationIP = values.destinationIP;
+          v.plugin = plugin;
         }
         body = { visitor: v };
       } else {
@@ -1041,6 +1060,9 @@ const Configs: React.FC = () => {
         minRetryInterval: proxyItem.minRetryInterval,
         fallbackTo: proxyItem.fallbackTo,
         fallbackTimeoutMs: proxyItem.fallbackTimeoutMs,
+        // 访客组网 (vnet) 插件回填
+        visitorPlugin: kind === 'visitor' ? pl.type : undefined,
+        destinationIP: kind === 'visitor' ? pl.destinationIP : undefined,
       });
     } else {
       proxyForm.resetFields();
@@ -1912,6 +1934,56 @@ const Configs: React.FC = () => {
                                   </Form.Item>
                                 </div>
                               )
+                            },
+                            {
+                              key: 'vnet',
+                              label: '组网 (VNet)',
+                              forceRender: true,
+                              children: (
+                                <div>
+                                  <Alert
+                                    type="warning"
+                                    showIcon
+                                    style={{ marginBottom: 16 }}
+                                    message="组网网关 / 虚拟网络 (vnet · 实验性)"
+                                    description={
+                                      <span>
+                                        让多台装有本系统的机器通过虚拟 IP（如 100.86.0.x）互相访问。基于 frp 的 VirtualNet（上游 Alpha 实验特性，
+                                        经 frps 中转、非 p2p）：<b>仅支持 Linux/macOS</b>，需 root/CAP_NET_ADMIN 权限创建虚拟网卡，Windows 不支持。
+                                        开启后：① 为本机分配一个虚拟地址；② 在「代理穿透规则」加一条 <b>STCP + virtual_net 插件</b> 把本节点暴露出去；
+                                        ③ 加「访客 + virtual_net + 目标虚拟 IP」去访问别的节点。
+                                      </span>
+                                    }
+                                  />
+                                  <Row gutter={16}>
+                                    <Col span={12}>
+                                      <Form.Item
+                                        label={<span>开启虚拟网络 (featureGates.VirtualNet)</span>}
+                                        name="virtualNetEnabled"
+                                        valuePropName="checked"
+                                        initialValue={false}
+                                      >
+                                        <Switch checkedChildren="已开启" unCheckedChildren="未启用" />
+                                      </Form.Item>
+                                    </Col>
+                                  </Row>
+                                  <Form.Item
+                                    noStyle
+                                    shouldUpdate={(prevValues, currentValues) => prevValues.virtualNetEnabled !== currentValues.virtualNetEnabled}
+                                  >
+                                    {({ getFieldValue }) => getFieldValue('virtualNetEnabled') ? (
+                                      <Form.Item
+                                        label={<span>本机虚拟地址 (virtualNet.address)</span>}
+                                        name="virtualNetAddress"
+                                        rules={[{ required: true, message: '请填写本机在虚拟网络中的 CIDR 地址' }]}
+                                        tooltip="本节点在虚拟网络中的地址，CIDR 形式；同一虚拟网内各节点地址不能重复，如 100.86.0.2/24"
+                                      >
+                                        <Input placeholder="100.86.0.2/24" style={{ maxWidth: 320 }} />
+                                      </Form.Item>
+                                    ) : null}
+                                  </Form.Item>
+                                </div>
+                              )
                             }
                           ]}
                         />
@@ -2281,6 +2353,36 @@ const Configs: React.FC = () => {
                     </Col>
                   </Row>
 
+                  {/* ===== 组网网关 (vnet) 访客插件 ===== */}
+                  <div style={{ borderTop: `1px solid ${token.colorBorderSecondary}`, paddingTop: 12, marginTop: 4 }}>
+                    <Text strong style={{ fontSize: 13 }}>组网网关 (VNet) <Tag color="orange">实验性</Tag></Text>
+                    <Form.Item
+                      label="访客插件 plugin"
+                      name="visitorPlugin"
+                      style={{ marginTop: 8 }}
+                      tooltip="选择 virtual_net：本访客作为虚拟网络节点访问对端的虚拟 IP。需先在「常规配置 → 组网 (VNet)」开启 VirtualNet 并设置本机虚拟地址。仅 Linux/macOS。"
+                    >
+                      <Select
+                        allowClear
+                        placeholder="可选：选择 virtual_net 接入组网"
+                        options={[{ value: 'virtual_net', label: 'virtual_net — 组网网关 (vnet)' }]}
+                        onChange={(val) => { if (val === 'virtual_net') proxyForm.setFieldsValue({ bindPort: -1 }); }}
+                      />
+                    </Form.Item>
+                    <Form.Item noStyle shouldUpdate={(p, c) => p.visitorPlugin !== c.visitorPlugin}>
+                      {({ getFieldValue }) => getFieldValue('visitorPlugin') === 'virtual_net' ? (
+                        <Form.Item
+                          label="目标虚拟 IP destinationIP"
+                          name="destinationIP"
+                          rules={[{ required: true, message: '请输入对端节点的虚拟 IP' }]}
+                          tooltip="对端节点在虚拟网络中的地址（单个 IP，非网段），如 100.86.0.1；选中后 bindPort 会自动设为 -1。"
+                        >
+                          <Input placeholder="100.86.0.1" />
+                        </Form.Item>
+                      ) : null}
+                    </Form.Item>
+                  </div>
+
                   {type === 'xtcp' && (
                     <div style={{ borderTop: `1px solid ${token.colorBorderSecondary}`, paddingTop: 12, marginTop: 4 }}>
                       <Text strong style={{ fontSize: 13 }}>XTCP 访客高级参数</Text>
@@ -2472,6 +2574,7 @@ const Configs: React.FC = () => {
                         { value: 'https2http', label: 'https2http' },
                         { value: 'https2https', label: 'https2https' },
                         { value: 'tls2raw', label: 'tls2raw' },
+                        { value: 'virtual_net', label: 'virtual_net — 组网网关 (vnet · 实验性)' },
                       ]}
                     />
                   </Form.Item>
@@ -2494,6 +2597,21 @@ const Configs: React.FC = () => {
                         <Input.Password placeholder="可选" />
                       </Form.Item>
                     </>
+                  )}
+                  {p === 'virtual_net' && (
+                    <Alert
+                      type="info"
+                      showIcon
+                      style={{ marginBottom: 12 }}
+                      message="组网网关 (vnet · 实验性)"
+                      description={
+                        <span>
+                          本代理把当前节点作为虚拟网络的<b>被访问端</b>。请选择 <b>STCP</b> 类型并设置<b>共享密钥</b>；
+                          对端用「访客 + virtual_net + 目标虚拟 IP」即可访问本节点。
+                          需先在「常规配置 → 组网 (VNet)」开启 VirtualNet 并设置本机虚拟地址。仅支持 Linux/macOS。
+                        </span>
+                      }
+                    />
                   )}
                 </>
               );
