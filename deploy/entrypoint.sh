@@ -30,4 +30,13 @@ if [ "$(id -u)" != "0" ]; then
     exec /usr/local/bin/frpcmgrd "$@"
 fi
 
+# vnet (frp VirtualNet) creates a TUN interface, which needs CAP_NET_ADMIN and
+# /dev/net/tun — capabilities the unprivileged runtime user (65532) does not
+# have. Opt in to staying root by setting FRPCMGR_RUN_AS_ROOT=1, paired with
+# `cap_add: [NET_ADMIN]` + `devices: [/dev/net/tun]` (see
+# deploy/docker-compose.vnet.yml). Only enable this if you actually use vnet.
+if [ "${FRPCMGR_RUN_AS_ROOT:-0}" = "1" ]; then
+    exec /usr/local/bin/frpcmgrd "$@"
+fi
+
 exec su-exec "${RUN_UID}:${RUN_GID}" /usr/local/bin/frpcmgrd "$@"

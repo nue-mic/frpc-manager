@@ -1,0 +1,62 @@
+# docker-compose.vnet.yml —— 启用 frp 组网 / 虚拟网络 (vnet) 的 Docker 变体。
+#
+# 与 docker-compose.standalone.yml 的区别仅三处（vnet 创建 TUN 网卡的硬性前置）：
+#   1. cap_add: [NET_ADMIN]          —— 允许容器创建网卡 / 改路由
+#   2. devices: ["/dev/net/tun"]     —— 把宿主机 TUN 设备挂进容器
+#   3. FRPCMGR_RUN_AS_ROOT=1         —— entrypoint 不降权，保留 CAP_NET_ADMIN
+#
+# 仅在你确实要用 vnet 时使用本文件。vnet 是上游 frp 的 Alpha 实验特性，
+# 仅 Linux 宿主可用（macOS/Windows 的 Docker Desktop 跑在虚拟机里，TUN 不可用）。
+#
+# 用法：
+#   docker compose -f deploy/docker-compose.vnet.yml up -d
+#
+# 仍需在「常规配置 → 组网 (VNet)」开启 VirtualNet 并设置本机虚拟地址，
+# 再用「STCP + virtual_net 插件」暴露本节点、「访客 + virtual_net + destinationIP」访问对端。
+
+services:
+  frpcmgrd:
+    image: ghcr.io/mia-clark/frpc-manager:${FRPCMGR_IMAGE_TAG:-latest}
+    container_name: docker_frpcmgrd
+    restart: always
+    # host 网络：TUN 网卡与路由建在宿主网络命名空间，组网才能真正打通。
+    network_mode: host
+
+    # --- vnet 必需的三件套 ---
+    cap_add:
+      - NET_ADMIN
+    devices:
+      - "/dev/net/tun:/dev/net/tun"
+
+    environment:
+      # --- required ---
+      FRPCMGR_API_TOKEN: ${FRPCMGR_API_TOKEN:-admin@local}
+
+      # --- vnet：保持 root 运行（否则无权限创建 TUN）---
+      FRPCMGR_RUN_AS_ROOT: "1"
+
+      # --- optional ---
+      FRPCMGR_HTTP_ADDR: ":${FRPCMGR_HTTP_PORT:-17200}"
+      FRPCMGR_CORS_ORIGINS: ${FRPCMGR_CORS_ORIGINS:-*}
+      FRPCMGR_LOG_LEVEL: ${FRPCMGR_LOG_LEVEL:-info}
+      FRPCMGR_DOCS_ENABLED: ${FRPCMGR_DOCS_ENABLED:-true}
+      TZ: ${TZ:-UTC}
+
+    volumes:
+      - ./frpmgr-data:/data
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
+
+    deploy:
+      resources:
+        limits:
+          memory: ${FRPCMGR_MEMORY_LIMIT:-512M}
+        reservations:
+          memory: 64M
+
+    labels:
+      com.centurylinklabs.watchtower.enable: "${FRPCMGR_AUTOUPDATE:-false}"

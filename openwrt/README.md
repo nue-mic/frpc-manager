@@ -179,6 +179,17 @@ openwrt/
 
 ---
 
+## 组网 / 虚拟网络（vnet · 实验性）
+
+frpc-manager 支持上游 frp 的 **VirtualNet（vnet）**：多台节点用虚拟 IP（如 `100.86.0.x`）互访。OpenWrt 上可用，但有两个前置条件：
+
+- **TUN 内核支持**：固件需含 `kmod-tun`（提供 `/dev/net/tun`）。多数官方固件默认带；精简固件可能缺，需 `opkg install kmod-tun`（apk 系统 `apk add kmod-tun`）。无此模块时 frpc 实例会因无法创建 TUN 网卡而启动失败。
+- **root 权限**：procd 默认以 root 运行 `frpcmgrd`，建 TUN 所需的 CAP_NET_ADMIN 已满足，无需额外配置。
+
+用法：在网页后台「常规配置 → 组网 (VNet)」开启 VirtualNet 并设置本机虚拟地址，再用「STCP + virtual_net 插件」暴露本节点、「访客 + virtual_net + 目标虚拟 IP」访问对端。vnet 是上游 Alpha 实验特性，请勿用于生产关键链路。
+
+> ⚠️ 实测验收：在真实 OpenWrt 设备上需自行确认 `kmod-tun` 存在、TUN 网卡创建成功、两节点虚拟 IP 可互 ping（musl/CGO_ENABLED=0 交叉构建 + 精简内核组合需现场验证）。
+
 ## OpenWrt 25.12 / apk（APKv3）说明
 
 OpenWrt 25.12（2026-03 发布）默认包管理器换成 **apk**（APKv3 + ADB 索引 + 签名），与 ipk **格式不同、不能直接 `apk add`**（报 `v2 package format error`，`--allow-untrusted` 也救不了）。nfpm 产的 “apk” 是 Alpine 风味 APKv2，同样不适用于 OpenWrt 的 apk。原生支持 25.12 需走 OpenWrt SDK（APKv3 + 签名），属独立二期工程，本目录未实现。
