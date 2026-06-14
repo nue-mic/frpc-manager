@@ -172,6 +172,10 @@
 					<input type="text" id="cfg_data_dir" placeholder="/usr/lib/frpcmgrd">
 					<div class="fm-sub"><%:存放隧道配置与日志，须为持久化路径；勿用 /tmp、/var 等易失目录，否则重启丢配置。%></div>
 				</div>
+				<div class="fm-field full">
+					<label><input type="checkbox" id="cfg_boot_autostart" style="margin-right:6px;vertical-align:-2px"><%:开机自动启动（强制）%></label>
+					<div class="fm-sub"><%:勾选：即使在本页点了「停止」，系统重启或升级核心后也会强制自动启动。不勾选（默认）：保持上次的启停状态——停止的重启后仍停止，运行的重启后仍运行。%></div>
+				</div>
 			</div>
 
 			<div class="fm-btns" style="margin-top:16px">
@@ -326,12 +330,14 @@
 			$('fm_nobin').style.display = nobin ? 'flex' : 'none';
 			$('fm_tabdot').style.display = nobin ? 'inline-block' : 'none';
 
+			window.LAST_RUNNING = !!d.running;
 			var c = d.cfg||{};
 			if(!(document.activeElement && document.activeElement.tagName==='INPUT')){
 				$('cfg_http_addr').value = c.http_addr||'';
 				$('cfg_token').value = c.token||'';
 				$('cfg_data_dir').value = c.data_dir||'';
 				$('cfg_log_level').value = c.log_level||'info';
+				$('cfg_boot_autostart').checked = (c.boot_autostart === '1' || c.boot_autostart === 1);
 			}
 			curPort = portFromAddr(c.http_addr);
 
@@ -429,14 +435,18 @@
 			http_addr: $('cfg_http_addr').value,
 			token: $('cfg_token').value,
 			data_dir: $('cfg_data_dir').value,
-			log_level: $('cfg_log_level').value
+			log_level: $('cfg_log_level').value,
+			boot_autostart: $('cfg_boot_autostart').checked ? '1' : '0'
 		});
+		// 仅当服务当前在运行时才重启以应用新配置；若处于停止状态，则只保存、保持停止
+		// （下次启动自动使用新配置），避免编辑配置把用户的停止状态意外改成运行。
+		var wasRunning = !!window.LAST_RUNNING;
 		req('save','POST',body).then(function(r){
 			if(!(r && r.ok)) throw new Error('save failed');
-			return req('control/restart');
+			return wasRunning ? req('control/restart') : Promise.resolve();
 		}).then(function(){
 			clearToast(t); busy(btn,false);
-			toast('✓ <%:已保存并重启生效%>', 'success');
+			toast(wasRunning ? '✓ <%:已保存并重启生效%>' : '✓ <%:已保存（当前为停止状态，保持停止）%>', 'success');
 			setTimeout(refresh, 800);
 		}).catch(function(e){ clearToast(t); busy(btn,false); toast('✗ <%:保存失败：%>'+e.message, 'error'); });
 	}

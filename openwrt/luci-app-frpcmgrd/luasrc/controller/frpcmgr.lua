@@ -56,12 +56,13 @@ function action_info()
 		running     = is_running(),
 		downloading = fs.access(DL_LOCK) and true or false,
 		cfg = {
-			enabled      = u("enabled", "1"),
-			http_addr    = u("http_addr", ":18080"),
-			token        = u("token", ""),
-			data_dir     = u("data_dir", "/usr/lib/frpcmgrd"),
-			log_level    = u("log_level", "info"),
-			version      = u("version", ""),
+			enabled        = u("enabled", "1"),
+			boot_autostart = u("boot_autostart", "0"),
+			http_addr      = u("http_addr", ":18080"),
+			token          = u("token", ""),
+			data_dir       = u("data_dir", "/usr/lib/frpcmgrd"),
+			log_level      = u("log_level", "info"),
+			version        = u("version", ""),
 		},
 	})
 end
@@ -101,6 +102,13 @@ function action_save()
 	setv("version",   http.formvalue("version"),   true)
 	local en = http.formvalue("enabled")
 	if en == "1" or en == "0" then uci:set("frpcmgrd", "main", "enabled", en) end
+	-- 开机强制自启开关。勾选时顺带把持久运行状态置 1，保证下次开机/升级一定会启动
+	-- （即使当前是停止状态）。
+	local ba = http.formvalue("boot_autostart")
+	if ba == "1" or ba == "0" then
+		uci:set("frpcmgrd", "main", "boot_autostart", ba)
+		if ba == "1" then uci:set("frpcmgrd", "main", "enabled", "1") end
+	end
 	uci:commit("frpcmgrd")
 	http.prepare_content("application/json")
 	http.write_json({ ok = true })
@@ -164,7 +172,19 @@ function action_logs()
 	})
 end
 
+-- 把「持久运行状态」写进 UCI option enabled（/etc/config 跨重启、跨升级保留）。
+-- start_service 据此决定是否拉起，故重启/升级后都会保持上次的启停状态。
+local function set_run_state(v) -- v: "1" | "0"
+	uci:set("frpcmgrd", "main", "enabled", v)
+	uci:commit("frpcmgrd")
+end
+
 -- 服务控制：start/stop/restart/enable/disable
+--
+-- 关键：启停不仅作用于当前进程，还把「目标运行状态」持久化到 UCI enabled，
+-- 这样系统重启或升级核心/重装 ipk 后，都会保持用户上次选择的启停状态。
+-- 例外：勾选了「开机强制自启」(boot_autostart=1) 时，点停止只停当前进程、
+-- 不改 enabled，于是下次开机仍强制拉起。
 function action_control(act)
 	http.prepare_content("application/json")
 	local allow = { start = true, stop = true, restart = true, enable = true, disable = true }
@@ -172,6 +192,20 @@ function action_control(act)
 		http.write_json({ ok = false, error = "invalid action" })
 		return
 	end
-	local rc = sys.call(INIT .. " " .. act .. " >/dev/null 2>&1")
+	local rc
+	if act == "start" or act == "restart" then
+		-- 先置 enabled=1（否则 start_service 会因「停止状态」拒绝启动），再执行。
+		set_run_state("1")
+		rc = sys.call(INIT .. " " .. act .. " >/dev/null 2>&1")
+	elseif act == "stop" then
+		rc = sys.call(INIT .. " stop >/dev/null 2>&1")
+		-- 默认把停止状态持久化；开启开机强制自启则保留 enabled=1。
+		if u("boot_autostart", "0") ~= "1" then
+			set_run_state("0")
+		end
+	else
+		-- enable / disable：保留原始语义（直接操作 procd 开机自启）
+		rc = sys.call(INIT .. " " .. act .. " >/dev/null 2>&1")
+	end
 	http.write_json({ ok = (rc == 0), running = is_running() })
 end

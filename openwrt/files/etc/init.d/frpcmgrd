@@ -82,7 +82,9 @@ start_service() {
 	config_load "$CONF"
 	config_get_bool enabled main enabled 1
 	if [ "$enabled" != "1" ]; then
-		logger -t frpcmgrd "在 /etc/config/frpcmgrd 中被禁用 (option enabled '0')，不启动"
+		# enabled 是「持久运行状态」：网页点停止会置 0。无论系统重启还是升级，
+		# 只要它是 0 就保持停止（除非勾选了开机强制自启，由网页把它重新置 1）。
+		logger -t frpcmgrd "当前为停止状态 (option enabled '0')，不启动；如需运行请在网页点「启动」或勾选「开机自动启动」"
 		return 0
 	fi
 
