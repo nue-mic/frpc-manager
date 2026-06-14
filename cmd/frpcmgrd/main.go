@@ -81,6 +81,13 @@ func runServe(args []string) int {
 	levelVar := new(slog.LevelVar)
 	levelVar.Set(appcfg.ParseLevel(cfg.LogLevel))
 	logger := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: levelVar}))
+	// Surface any FRPCMGR_HTTP_ADDR normalization warning now that the logger
+	// exists (appcfg.Load runs before the logger is built, so it can only stash
+	// the text). Non-empty means the value was left as-is for net.Listen to
+	// reject — better a visible error than silently binding the default port.
+	if cfg.HTTPAddrWarn != "" {
+		logger.Warn("listen addr normalize", slog.String("detail", cfg.HTTPAddrWarn))
+	}
 	logger.Info("starting frpcmgrd",
 		slog.String("addr", cfg.HTTPAddr),
 		slog.String("data_dir", cfg.DataDir),
@@ -173,4 +180,3 @@ func runHealth(args []string) int {
 	}
 	return 0
 }
-

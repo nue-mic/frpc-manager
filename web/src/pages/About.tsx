@@ -673,7 +673,7 @@ function renderEnvTab(opts: { token: TokenLike }) {
 
   const envs: Array<{ key: string; required: string; default: string; desc: string }> = [
     { key: 'FRPCMGR_API_TOKEN',     required: '✓', default: '—',        desc: 'API 鉴权 Bearer 令牌，登录管理面板的凭证。建议 openssl rand -hex 32 生成。' },
-    { key: 'FRPCMGR_HTTP_ADDR',     required: '',  default: ':18080',    desc: '监听地址，格式 :端口 或 ip:端口。' },
+    { key: 'FRPCMGR_HTTP_ADDR',     required: '',  default: ':18080',    desc: '监听地址，可只填端口(如 18080，自动补为 :18080)或 :端口/ip:端口。' },
     { key: 'FRPCMGR_DATA_DIR',      required: '',  default: '/data',     desc: '数据根目录。子目录：profiles/(配置 TOML)、logs/(合并日志)、stores/(visitor 状态)、meta.json(元数据)。' },
     { key: 'FRPCMGR_CORS_ORIGINS',  required: '',  default: '*',         desc: '逗号分隔的 CORS 白名单。前后端分离调试时填具体 origin。' },
     { key: 'FRPCMGR_LOG_LEVEL',     required: '',  default: 'info',      desc: 'trace / debug / info / warn / error。' },

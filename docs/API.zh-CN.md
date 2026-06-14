@@ -9,7 +9,7 @@
 
 | 项目 | 值 |
 |---|---|
-| 监听地址 | `FRPCMGR_HTTP_ADDR`，默认 `:18080` |
+| 监听地址 | `FRPCMGR_HTTP_ADDR`，可只填端口(如 `18080`，自动归一化为 `:18080`)或 `:端口`/`ip:端口`，默认 `:18080` |
 | 数据目录 | `FRPCMGR_DATA_DIR`，默认 `/data` |
 | 鉴权 | 除 `/api/v1/health`、`GET /api/v1/ui/branding` 与 `/api/docs/*` 外，所有 `/api/v1/*` 都要求 `Authorization: Bearer <FRPCMGR_API_TOKEN>` |
 | Content-Type | 除特别说明（`/raw` / `/import/zip` / `/validate` 等）外，**请求/返回均为 `application/json; charset=utf-8`** |

@@ -3,14 +3,21 @@ package appcfg
 import (
 	"errors"
 	"log/slog"
+	"net"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 )
 
 // Config is the daemon's own runtime configuration, populated from env vars.
 type Config struct {
-	HTTPAddr     string
+	HTTPAddr string
+	// HTTPAddrWarn carries a non-fatal warning produced while normalizing
+	// FRPCMGR_HTTP_ADDR (e.g. an unrecognized value left as-is for net.Listen
+	// to reject). The daemon bootstrap emits it once the logger exists, since
+	// Load() runs before the logger is constructed.
+	HTTPAddrWarn string
 	APIToken     string
 	CORSOrigins  []string
 	DataDir      string
@@ -31,8 +38,10 @@ type Config struct {
 // Load reads configuration from environment variables. Required fields
 // without sensible defaults will return an error.
 func Load() (*Config, error) {
+	httpAddr, httpAddrWarn := NormalizeListenAddr(getEnv("FRPCMGR_HTTP_ADDR", ":18080"))
 	cfg := &Config{
-		HTTPAddr:     getEnv("FRPCMGR_HTTP_ADDR", ":18080"),
+		HTTPAddr:     httpAddr,
+		HTTPAddrWarn: httpAddrWarn,
 		APIToken:     os.Getenv("FRPCMGR_API_TOKEN"),
 		CORSOrigins:  splitCSV(getEnv("FRPCMGR_CORS_ORIGINS", "*")),
 		DataDir:      getEnv("FRPCMGR_DATA_DIR", "/data"),
@@ -68,6 +77,61 @@ func getEnv(key, def string) string {
 		return v
 	}
 	return def
+}
+
+// defaultListenAddr is the fallback used when FRPCMGR_HTTP_ADDR is empty.
+const defaultListenAddr = ":18080"
+
+// NormalizeListenAddr makes FRPCMGR_HTTP_ADDR forgiving: a bare port such as
+// "18080" gets the ":" prepended so net.Listen accepts it, while existing
+// host:port values (":18080", "0.0.0.0:18080", "[::]:18080") pass through
+// unchanged — the change is fully backward compatible.
+//
+// It favors fail-fast over silent fallback: anything we cannot confidently
+// interpret (out-of-range port, "abc", bare IP, unbracketed IPv6) is returned
+// as-is with a warning, so net.Listen surfaces a real error in the logs rather
+// than silently binding the default port and leaving the operator wondering why
+// the UI is unreachable. Only an empty value falls back to the default. Digit
+// detection is ASCII-only so full-width digits (e.g. "１８０８０") don't slip into
+// the port branch and then fail Atoi.
+func NormalizeListenAddr(raw string) (addr string, warn string) {
+	s := strings.TrimSpace(raw)
+	if s == "" {
+		return defaultListenAddr, ""
+	}
+	// 1) Bare port -> ":" + port, with range check.
+	if isAllASCIIDigits(s) {
+		if n, err := strconv.Atoi(s); err == nil && n >= 1 && n <= 65535 {
+			return ":" + s, ""
+		}
+		return s, "FRPCMGR_HTTP_ADDR 端口越界(需 1-65535): " + raw + "，原样交给 net.Listen 处理"
+	}
+	// 2) Has a colon: let SplitHostPort validate the syntax. A pass only means
+	//    the form is host:port — the host may still be unbindable (a hostname,
+	//    localhost, or a non-local IP can fail at Listen time).
+	if _, port, err := net.SplitHostPort(s); err == nil {
+		if p, e := strconv.Atoi(port); e == nil && p >= 1 && p <= 65535 {
+			return s, ""
+		}
+		return s, "FRPCMGR_HTTP_ADDR 端口部分非法: " + raw + "，原样交给 net.Listen 处理"
+	}
+	// 3) Anything else (abc / 18080/tcp / bare IP / unbracketed IPv6).
+	return s, "FRPCMGR_HTTP_ADDR 无法识别: " + raw + " (IPv6 单地址须用方括号 [addr]:port)，原样交给 net.Listen 处理"
+}
+
+// isAllASCIIDigits reports whether s is non-empty and consists solely of ASCII
+// 0-9. Deliberately not unicode.IsDigit, which would accept full-width digits
+// and let them fall into the bare-port branch only to fail strconv.Atoi.
+func isAllASCIIDigits(s string) bool {
+	if s == "" {
+		return false
+	}
+	for i := 0; i < len(s); i++ {
+		if s[i] < '0' || s[i] > '9' {
+			return false
+		}
+	}
+	return true
 }
 
 // ParseLevel maps a level name (trace|debug|info|warn|error) to slog.Level.
