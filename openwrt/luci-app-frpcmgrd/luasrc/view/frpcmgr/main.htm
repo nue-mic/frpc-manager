@@ -50,6 +50,16 @@
 	.fmx .fm-inline{display:flex;gap:8px;align-items:stretch;flex-wrap:wrap}
 	.fmx .fm-inline input{flex:1 1 200px}
 
+	/* 开关（开机自启）—— 自带样式，独立于 .fm-field 通用 input 规则与主题，确保勾选态清晰可见 */
+	.fmx .fm-toggle{grid-column:1/-1;display:flex;flex-direction:column;min-width:0}
+	.fmx .fm-switch{display:inline-flex;align-items:center;gap:9px;cursor:pointer;user-select:none;position:relative}
+	.fmx .fm-switch input{position:absolute;opacity:0;width:0;height:0;margin:0}
+	.fmx .fm-switch .fm-switch-track{flex:0 0 auto;width:42px;height:23px;border-radius:23px;background:#c7ccd6;position:relative;transition:background .15s}
+	.fmx .fm-switch .fm-switch-knob{position:absolute;top:2px;left:2px;width:19px;height:19px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.3);transition:transform .15s}
+	.fmx .fm-switch input:checked + .fm-switch-track{background:#16a34a}
+	.fmx .fm-switch input:checked + .fm-switch-track .fm-switch-knob{transform:translateX(19px)}
+	.fmx .fm-switch .fm-switch-text{font-size:13px;font-weight:500;opacity:.9}
+
 	/* 按钮体系（height:auto 抵消主题强制的 2.5rem 高） */
 	.fmx .fm-btns{display:flex;flex-wrap:wrap;gap:9px;align-items:center;margin-top:4px}
 	.fmx .fm-spacer{flex:1 1 auto;min-width:8px}
@@ -172,9 +182,13 @@
 					<input type="text" id="cfg_data_dir" placeholder="/usr/lib/frpcmgrd">
 					<div class="fm-sub"><%:存放隧道配置与日志，须为持久化路径；勿用 /tmp、/var 等易失目录，否则重启丢配置。%></div>
 				</div>
-				<div class="fm-field full">
-					<label><input type="checkbox" id="cfg_boot_autostart" style="margin-right:6px;vertical-align:-2px"><%:开机自动启动（强制）%></label>
-					<div class="fm-sub"><%:勾选：即使在本页点了「停止」，系统重启或升级核心后也会强制自动启动。不勾选（默认）：保持上次的启停状态——停止的重启后仍停止，运行的重启后仍运行。%></div>
+				<div class="fm-toggle">
+					<label class="fm-switch">
+						<input type="checkbox" id="cfg_boot_autostart">
+						<span class="fm-switch-track"><span class="fm-switch-knob"></span></span>
+						<span class="fm-switch-text"><%:开机自动启动（强制）%></span>
+					</label>
+					<div class="fm-sub"><%:勾选：即使在本页点了「停止」，系统重启或升级核心后也会强制自动启动。不勾选（默认）：保持上次的启停状态——停止的重启后仍停止，运行的重启后仍运行。（改动需点下方「保存并重启生效」后生效）%></div>
 				</div>
 			</div>
 
