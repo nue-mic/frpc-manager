@@ -17,6 +17,7 @@ import {
   EditOutlined,
   CodeOutlined,
   PlusOutlined,
+  MinusCircleOutlined,
   CheckCircleOutlined,
   ThunderboltOutlined,
   FileTextOutlined,
@@ -971,29 +972,51 @@ const Configs: React.FC = () => {
           // allowUsers 留空时默认放行所有用户（*）
           payload.allowUsers = splitCSV(values.allowUsers) ?? ['*'];
         }
-        // 插件透传：字段名必须按 plugin.type 分发到上游 frp v1 的正确 key
-        // （pkg/config/v1/proxy_plugin.go）。写错不会 400（TypedClientPluginOptions
-        // 自定义 UnmarshalJSON 走非严格解码）而是被静默丢弃——socks5 会变成无鉴权、
-        // unix_domain_socket 会丢失路径。所以同一组输入框要按类型映射到不同 key：
-        //   socks5             → username / password   （非 httpUser/httpPassword）
-        //   unix_domain_socket → unixPath               （非 localPath）
-        //   http_proxy/static_file → httpUser/httpPassword
+        // 插件透传：必须按 plugin.type 严格分发到上游 frp v1 的正确 json key
+        // （pkg/config/v1/proxy_plugin.go），且只发该类型存在的字段。写错 key 不会 400
+        // （plugin 走 TypedClientPluginOptions 的非严格自定义 UnmarshalJSON）而是被静默
+        // 丢弃——socks5 错配会变无鉴权、unix_domain_socket 错配会丢路径。各插件字段集见
+        // 上游：http2*/https2* 走 localAddr+hostHeaderRewrite+requestHeaders；https2*/tls2raw
+        // 才有 crtPath/keyPath；enableHTTP2 仅 https2http/https2https（key 大写 HTTP2）。
         if (values.pluginName) {
           const pname = values.pluginName as string;
           const plugin: Record<string, unknown> = { type: pname };
-          if (values.pluginLocalAddr) plugin.localAddr = values.pluginLocalAddr;
-          if (values.pluginLocalPath) {
-            if (pname === 'unix_domain_socket') plugin.unixPath = values.pluginLocalPath;
-            else plugin.localPath = values.pluginLocalPath;
+          const isLocalAddr = ['http2http', 'http2https', 'https2http', 'https2https', 'tls2raw'].includes(pname);
+          const isHTTPFwd = ['http2http', 'http2https', 'https2http', 'https2https'].includes(pname);
+          const isTLSCert = ['https2http', 'https2https', 'tls2raw'].includes(pname);
+          const isEnableHTTP2 = ['https2http', 'https2https'].includes(pname);
+          if (isLocalAddr && values.pluginLocalAddr) plugin.localAddr = values.pluginLocalAddr;
+          // static_file 用 localPath(+stripPrefix)；unix_domain_socket 用 unixPath（共用 pluginLocalPath 输入框）
+          if (pname === 'static_file') {
+            if (values.pluginLocalPath) plugin.localPath = values.pluginLocalPath;
+            if (values.pluginStripPrefix) plugin.stripPrefix = values.pluginStripPrefix;
           }
-          if (values.pluginHTTPUser) {
-            if (pname === 'socks5') plugin.username = values.pluginHTTPUser;
-            else plugin.httpUser = values.pluginHTTPUser;
+          if (pname === 'unix_domain_socket' && values.pluginLocalPath) plugin.unixPath = values.pluginLocalPath;
+          // 鉴权：socks5 用 username/password；http_proxy/static_file 用 httpUser/httpPassword
+          if (pname === 'socks5') {
+            if (values.pluginHTTPUser) plugin.username = values.pluginHTTPUser;
+            if (values.pluginHTTPPassword) plugin.password = values.pluginHTTPPassword;
           }
-          if (values.pluginHTTPPassword) {
-            if (pname === 'socks5') plugin.password = values.pluginHTTPPassword;
-            else plugin.httpPassword = values.pluginHTTPPassword;
+          if (pname === 'http_proxy' || pname === 'static_file') {
+            if (values.pluginHTTPUser) plugin.httpUser = values.pluginHTTPUser;
+            if (values.pluginHTTPPassword) plugin.httpPassword = values.pluginHTTPPassword;
           }
+          // HTTP 转发类：hostHeaderRewrite + requestHeaders（上游 HeaderOperations 仅 set 子键）
+          if (isHTTPFwd) {
+            if (values.pluginHostHeaderRewrite) plugin.hostHeaderRewrite = values.pluginHostHeaderRewrite;
+            const hs = ((values.pluginRequestHeaders as Array<{ key?: string; value?: string }>) || [])
+              .filter((x) => x && x.key && x.key.trim());
+            if (hs.length) {
+              plugin.requestHeaders = { set: Object.fromEntries(hs.map((x) => [x.key!.trim(), x.value ?? ''])) };
+            }
+          }
+          // TLS 证书/私钥路径：https2http/https2https/tls2raw
+          if (isTLSCert) {
+            if (values.pluginCrtPath) plugin.crtPath = values.pluginCrtPath;
+            if (values.pluginKeyPath) plugin.keyPath = values.pluginKeyPath;
+          }
+          // enableHTTP2（*bool，上游默认 true）：始终下发明确值，避免「未设置」被读成 true 而与关闭意图冲突
+          if (isEnableHTTP2) plugin.enableHTTP2 = values.pluginEnableHTTP2 !== false;
           payload.plugin = plugin;
         }
         body = { proxy: payload };
@@ -1076,8 +1099,16 @@ const Configs: React.FC = () => {
         pluginName: pl.type,
         pluginLocalAddr: pl.localAddr,
         pluginLocalPath: pl.type === 'unix_domain_socket' ? pl.unixPath : pl.localPath,
+        pluginStripPrefix: pl.stripPrefix,
         pluginHTTPUser: pl.type === 'socks5' ? pl.username : pl.httpUser,
         pluginHTTPPassword: pl.type === 'socks5' ? pl.password : pl.httpPassword,
+        pluginHostHeaderRewrite: pl.hostHeaderRewrite,
+        pluginCrtPath: pl.crtPath,
+        pluginKeyPath: pl.keyPath,
+        // enableHTTP2 上游为 *bool 且默认 true：缺省按 true 回填，与保存侧 !==false 语义一致
+        pluginEnableHTTP2: pl.enableHTTP2 ?? true,
+        // requestHeaders 是嵌套 { set: {k:v} }：展开成 Form.List 用的 [{key,value}] 数组
+        pluginRequestHeaders: Object.entries((pl.requestHeaders?.set ?? {}) as Record<string, string>).map(([key, value]) => ({ key, value })),
         // visitor 字段
         serverName: proxyItem.serverName,
         serverUser: proxyItem.serverUser,
@@ -2651,6 +2682,12 @@ const Configs: React.FC = () => {
               const needsLocalAddr = !!p && ['http2http', 'http2https', 'https2http', 'https2https', 'tls2raw'].includes(p);
               const needsLocalPath = p === 'static_file' || p === 'unix_domain_socket';
               const needsAuth = p === 'http_proxy' || p === 'socks5' || p === 'static_file';
+              // HTTP 转发类（向本地后端转发 HTTP）：可改写 Host 头 + 附加请求头
+              const needsHTTPFwd = !!p && ['http2http', 'http2https', 'https2http', 'https2https'].includes(p);
+              // 监听端做 TLS：需要证书/私钥路径
+              const needsTLSCert = !!p && ['https2http', 'https2https', 'tls2raw'].includes(p);
+              // 仅 https2http/https2https 有 enableHTTP2 开关（上游默认开）
+              const needsEnableHTTP2 = p === 'https2http' || p === 'https2https';
               return (
                 <>
                   <Form.Item
@@ -2661,6 +2698,23 @@ const Configs: React.FC = () => {
                     <Select
                       allowClear
                       placeholder="可选：选择插件以替代 local 端口"
+                      onChange={(v) => {
+                        // 切换插件类型时清空所有插件专有输入，避免上一个插件的残留值留在
+                        // 共用输入框里（如 static_file↔unix_domain_socket 共用 pluginLocalPath）。
+                        // 切到带 enableHTTP2 的插件时按上游默认 true 预置开关。
+                        proxyForm.setFieldsValue({
+                          pluginLocalAddr: undefined,
+                          pluginLocalPath: undefined,
+                          pluginStripPrefix: undefined,
+                          pluginHTTPUser: undefined,
+                          pluginHTTPPassword: undefined,
+                          pluginHostHeaderRewrite: undefined,
+                          pluginCrtPath: undefined,
+                          pluginKeyPath: undefined,
+                          pluginRequestHeaders: undefined,
+                          pluginEnableHTTP2: v === 'https2http' || v === 'https2https' ? true : undefined,
+                        });
+                      }}
                       options={[
                         { value: 'http_proxy', label: 'http_proxy — HTTP 代理' },
                         { value: 'socks5', label: 'socks5 — SOCKS5 代理' },
@@ -2694,6 +2748,55 @@ const Configs: React.FC = () => {
                         <Input.Password placeholder="可选" />
                       </Form.Item>
                     </>
+                  )}
+                  {p === 'static_file' && (
+                    <Form.Item label="URL 前缀剥离 stripPrefix" name="pluginStripPrefix" tooltip="访问路径中要剥掉的前缀；留空=不剥离">
+                      <Input placeholder="可选，如 static" />
+                    </Form.Item>
+                  )}
+                  {needsHTTPFwd && (
+                    <>
+                      <Form.Item label="Host 头重写 hostHeaderRewrite" name="pluginHostHeaderRewrite" tooltip="转发到本地后端时改写 Host 请求头">
+                        <Input placeholder="可选，如 127.0.0.1 或 internal.app" />
+                      </Form.Item>
+                      <Form.Item label="自定义请求头 requestHeaders" tooltip="转发到本地后端时附加/覆盖的请求头（对应 frp requestHeaders.set）">
+                        <Form.List name="pluginRequestHeaders">
+                          {(fields, { add, remove }) => (
+                            <>
+                              {fields.map(({ key, name }) => (
+                                <Space key={key} align="baseline" style={{ display: 'flex', marginBottom: 8 }}>
+                                  <Form.Item name={[name, 'key']} noStyle>
+                                    <Input placeholder="Header 名，如 X-From" style={{ width: 170 }} />
+                                  </Form.Item>
+                                  <Form.Item name={[name, 'value']} noStyle>
+                                    <Input placeholder="值" style={{ width: 170 }} />
+                                  </Form.Item>
+                                  <MinusCircleOutlined onClick={() => remove(name)} />
+                                </Space>
+                              ))}
+                              <Button type="dashed" onClick={() => add()} icon={<PlusOutlined />} block>
+                                添加请求头
+                              </Button>
+                            </>
+                          )}
+                        </Form.List>
+                      </Form.Item>
+                    </>
+                  )}
+                  {needsTLSCert && (
+                    <>
+                      <Form.Item label="TLS 证书路径 crtPath" name="pluginCrtPath" tooltip="frpc 监听端做 TLS 终结所用的证书文件路径">
+                        <Input placeholder="/etc/ssl/site.crt" />
+                      </Form.Item>
+                      <Form.Item label="TLS 私钥路径 keyPath" name="pluginKeyPath" tooltip="与证书配对的私钥文件路径">
+                        <Input placeholder="/etc/ssl/site.key" />
+                      </Form.Item>
+                    </>
+                  )}
+                  {needsEnableHTTP2 && (
+                    <Form.Item label="启用 HTTP/2 (enableHTTP2)" name="pluginEnableHTTP2" valuePropName="checked" tooltip="向本地后端发起连接时是否启用 HTTP/2；frp 默认开启">
+                      <Switch />
+                    </Form.Item>
                   )}
                   {p === 'virtual_net' && (
                     <Alert
