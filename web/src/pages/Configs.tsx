@@ -971,13 +971,29 @@ const Configs: React.FC = () => {
           // allowUsers 留空时默认放行所有用户（*）
           payload.allowUsers = splitCSV(values.allowUsers) ?? ['*'];
         }
-        // 插件透传
+        // 插件透传：字段名必须按 plugin.type 分发到上游 frp v1 的正确 key
+        // （pkg/config/v1/proxy_plugin.go）。写错不会 400（TypedClientPluginOptions
+        // 自定义 UnmarshalJSON 走非严格解码）而是被静默丢弃——socks5 会变成无鉴权、
+        // unix_domain_socket 会丢失路径。所以同一组输入框要按类型映射到不同 key：
+        //   socks5             → username / password   （非 httpUser/httpPassword）
+        //   unix_domain_socket → unixPath               （非 localPath）
+        //   http_proxy/static_file → httpUser/httpPassword
         if (values.pluginName) {
-          const plugin: Record<string, unknown> = { type: values.pluginName };
+          const pname = values.pluginName as string;
+          const plugin: Record<string, unknown> = { type: pname };
           if (values.pluginLocalAddr) plugin.localAddr = values.pluginLocalAddr;
-          if (values.pluginLocalPath) plugin.localPath = values.pluginLocalPath;
-          if (values.pluginHTTPUser) plugin.httpUser = values.pluginHTTPUser;
-          if (values.pluginHTTPPassword) plugin.httpPassword = values.pluginHTTPPassword;
+          if (values.pluginLocalPath) {
+            if (pname === 'unix_domain_socket') plugin.unixPath = values.pluginLocalPath;
+            else plugin.localPath = values.pluginLocalPath;
+          }
+          if (values.pluginHTTPUser) {
+            if (pname === 'socks5') plugin.username = values.pluginHTTPUser;
+            else plugin.httpUser = values.pluginHTTPUser;
+          }
+          if (values.pluginHTTPPassword) {
+            if (pname === 'socks5') plugin.password = values.pluginHTTPPassword;
+            else plugin.httpPassword = values.pluginHTTPPassword;
+          }
           payload.plugin = plugin;
         }
         body = { proxy: payload };
@@ -1054,11 +1070,14 @@ const Configs: React.FC = () => {
         routeByHTTPUser: proxyItem.routeByHTTPUser,
         secretKey: proxyItem.secretKey,
         allowUsers: proxyItem.allowUsers ? proxyItem.allowUsers.join(',') : '',
+        // 回填：与保存侧对称，按 plugin.type 从正确的 v1 key 读回到统一输入框。
+        // record.plugin 来自 GET /configs/{id} 的 camelCase 完整定义（见 loadProxies
+        // 的 merge），含 username/password/unixPath，可直接回读。
         pluginName: pl.type,
         pluginLocalAddr: pl.localAddr,
-        pluginLocalPath: pl.localPath,
-        pluginHTTPUser: pl.httpUser,
-        pluginHTTPPassword: pl.httpPassword,
+        pluginLocalPath: pl.type === 'unix_domain_socket' ? pl.unixPath : pl.localPath,
+        pluginHTTPUser: pl.type === 'socks5' ? pl.username : pl.httpUser,
+        pluginHTTPPassword: pl.type === 'socks5' ? pl.password : pl.httpPassword,
         // visitor 字段
         serverName: proxyItem.serverName,
         serverUser: proxyItem.serverUser,
