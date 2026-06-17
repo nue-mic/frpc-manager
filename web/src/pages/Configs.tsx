@@ -936,6 +936,16 @@ const Configs: React.FC = () => {
           localIP: values.localIP || undefined,
           localPort: values.localPort,
         };
+        // 传输层加密 / 压缩（与 visitor 对称）。frp 中 proxy 与 visitor 两端各自
+        // 按自身 transport.useEncryption/useCompression 包装，且不协商：STCP/XTCP/SUDP
+        // 必须两端完全一致，否则隧道能建立但数据为乱码、无法访问。仅当用户实际切过
+        // 开关(非 undefined)才下发，保持新建时的干净 payload。
+        if (values.useEncryption !== undefined || values.useCompression !== undefined) {
+          payload.transport = {
+            useEncryption: !!values.useEncryption,
+            useCompression: !!values.useCompression,
+          };
+        }
         // 通用 / TCP / UDP
         if (t === 'tcp' || t === 'udp') {
           payload.remotePort = values.remotePort;
@@ -2345,12 +2355,22 @@ const Configs: React.FC = () => {
                   </Row>
                   <Row gutter={12}>
                     <Col span={12}>
-                      <Form.Item label="加密传输" name="useEncryption" valuePropName="checked">
+                      <Form.Item
+                        label="加密传输"
+                        name="useEncryption"
+                        valuePropName="checked"
+                        tooltip="必须与服务端代理 (proxy) 的「加密传输」设置完全一致，否则隧道虽能打通但数据为乱码、无法访问。XTCP 走 QUIC 时链路本身已 TLS 加密，此项通常保持关闭即可。"
+                      >
                         <Switch checkedChildren="启用" unCheckedChildren="关闭" />
                       </Form.Item>
                     </Col>
                     <Col span={12}>
-                      <Form.Item label="压缩传输" name="useCompression" valuePropName="checked">
+                      <Form.Item
+                        label="压缩传输"
+                        name="useCompression"
+                        valuePropName="checked"
+                        tooltip="必须与服务端代理 (proxy) 的「压缩传输」设置完全一致。"
+                      >
                         <Switch checkedChildren="启用" unCheckedChildren="关闭" />
                       </Form.Item>
                     </Col>
@@ -2554,6 +2574,49 @@ const Configs: React.FC = () => {
                 >
                   <InputNumber min={1} max={65535} style={{ width: '100%' }} placeholder="6000" />
                 </Form.Item>
+              );
+            }}
+          </Form.Item>
+
+          {/* 传输层：加密 / 压缩（所有代理类型通用）。
+              frp 中 proxy 与 visitor 各自按自身配置包装、互不协商：STCP/XTCP/SUDP
+              与访客端成对，两端必须完全一致，否则隧道能建立但数据为乱码、无法访问。
+              这也是「代理端无此开关、只在访客端能开 → 必然对不齐」历史坑的根治。 */}
+          <Form.Item
+            noStyle
+            shouldUpdate={(prev, cur) => prev.kind !== cur.kind || prev.type !== cur.type}
+          >
+            {({ getFieldValue }) => {
+              if (getFieldValue('kind') === 'visitor') return null;
+              const type = getFieldValue('type');
+              const paired = type === 'stcp' || type === 'sudp' || type === 'xtcp';
+              return (
+                <Row gutter={12}>
+                  <Col span={12}>
+                    <Form.Item
+                      label="加密传输"
+                      name="useEncryption"
+                      valuePropName="checked"
+                      tooltip={paired
+                        ? '必须与访客端 (visitor) 的「加密传输」设置完全一致，否则 P2P/隧道虽能建立但数据为乱码、无法访问。XTCP 走 QUIC 时链路本身已 TLS 加密，此项通常保持关闭即可。'
+                        : '作用于 frpc↔frps 链路；当传输层 TLS 已开启时通常无需再开。'}
+                    >
+                      <Switch checkedChildren="启用" unCheckedChildren="关闭" />
+                    </Form.Item>
+                  </Col>
+                  <Col span={12}>
+                    <Form.Item
+                      label="压缩传输"
+                      name="useCompression"
+                      valuePropName="checked"
+                      tooltip={paired
+                        ? '必须与访客端 (visitor) 的「压缩传输」设置完全一致。'
+                        : '作用于 frpc↔frps 链路。'}
+                    >
+                      <Switch checkedChildren="启用" unCheckedChildren="关闭" />
+                    </Form.Item>
+                  </Col>
+                </Row>
               );
             }}
           </Form.Item>
