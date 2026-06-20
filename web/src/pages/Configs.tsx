@@ -30,6 +30,7 @@ import {
   HolderOutlined,
   SwapOutlined,
   UserOutlined,
+  ExportOutlined,
 } from '@ant-design/icons';
 
 const LIST_COMPACT_KEY = 'frpmgr_configs_compact';
@@ -62,6 +63,7 @@ const tomlEditorFontTheme = EditorView.theme({
   '.cm-scroller': { lineHeight: '1.55' },
 });
 import client, { getAPIToken } from '../api/client';
+import RulesTransferModal from '../components/RulesTransferModal';
 import { useTheme } from '../theme/ThemeContext';
 import { useEventSubscription } from '../events/EventStreamContext';
 import { stripLogNoise } from '../utils/log';
@@ -105,6 +107,11 @@ const Configs: React.FC = () => {
   const [migrateModalOpen, setMigrateModalOpen] = useState<boolean>(false);
   const [migrateTargetId, setMigrateTargetId] = useState<string>('');
   const [migrating, setMigrating] = useState<boolean>(false);
+
+  // 规则导入导出弹窗
+  const [rulesModalOpen, setRulesModalOpen] = useState(false);
+  const [rulesModalTab, setRulesModalTab] = useState<'export' | 'import'>('export');
+  const [rulesPasteContent, setRulesPasteContent] = useState('');
   const dragIndexRef = useRef<number | null>(null);
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
 
@@ -157,6 +164,35 @@ const Configs: React.FC = () => {
     setSelectedProxyKeys([]);
     setMigrateModalOpen(false);
     setMigrateTargetId('');
+  }, [activeConfigId]);
+
+  // 全局粘贴自动识别规则（智能避让输入态）：在配置页非输入区粘贴一段
+  // 可移植信封 JSON 或 TOML 片段时，自动弹出「导入」并预填内容。
+  useEffect(() => {
+    const onPaste = (e: ClipboardEvent) => {
+      if (!activeConfigId) return;
+      // 智能避让：输入框 / 文本域 / 可编辑区 / CodeMirror 聚焦时不拦截
+      const el = document.activeElement as HTMLElement | null;
+      if (el) {
+        const tag = el.tagName;
+        if (tag === 'INPUT' || tag === 'TEXTAREA' || el.isContentEditable || el.closest('.cm-editor')) {
+          return;
+        }
+      }
+      const text = e.clipboardData?.getData('text') || '';
+      const t = text.trim();
+      if (!t) return;
+      // 快速嗅探：可移植信封 或 TOML 片段
+      const looksPortable = t.startsWith('{') && t.includes('"frpcManagerExport"');
+      const looksToml = t.includes('[[proxies]]') || t.includes('[[visitors]]');
+      if (!looksPortable && !looksToml) return;
+      e.preventDefault();
+      setRulesPasteContent(t);
+      setRulesModalTab('import');
+      setRulesModalOpen(true);
+    };
+    document.addEventListener('paste', onPaste);
+    return () => document.removeEventListener('paste', onPaste);
   }, [activeConfigId]);
 
   const fetchConfigs = async () => {
@@ -1435,6 +1471,17 @@ const Configs: React.FC = () => {
                                     label: '添加访客 (Visitor)',
                                     onClick: () => openProxyDrawer(undefined, 'visitor'),
                                   },
+                                  { type: 'divider' },
+                                  {
+                                    key: 'rules-io',
+                                    icon: <SwapOutlined />,
+                                    label: '规则导入导出…',
+                                    onClick: () => {
+                                      setRulesModalTab('export');
+                                      setRulesPasteContent('');
+                                      setRulesModalOpen(true);
+                                    },
+                                  },
                                 ],
                               }}
                               placement="bottomRight"
@@ -1470,6 +1517,17 @@ const Configs: React.FC = () => {
                             >
                               <Button size="small" danger icon={<DeleteOutlined />}>批量删除</Button>
                             </Popconfirm>
+                            <Button
+                              size="small"
+                              icon={<ExportOutlined />}
+                              onClick={() => {
+                                setRulesModalTab('export');
+                                setRulesPasteContent('');
+                                setRulesModalOpen(true);
+                              }}
+                            >
+                              导出选中
+                            </Button>
                             <Button size="small" type="text" onClick={() => setSelectedProxyKeys([])}>
                               取消选择
                             </Button>
@@ -2851,6 +2909,19 @@ const Configs: React.FC = () => {
           />
         </Space>
       </Modal>
+
+      {activeConfigId && (
+        <RulesTransferModal
+          open={rulesModalOpen}
+          configId={activeConfigId}
+          configName={configs.find((c) => c.id === activeConfigId)?.name || activeConfigId}
+          selectedNames={selectedProxyKeys as string[]}
+          initialTab={rulesModalTab}
+          initialContent={rulesPasteContent}
+          onClose={() => setRulesModalOpen(false)}
+          onImported={() => loadProxies(activeConfigId)}
+        />
+      )}
     </div>
   );
 };
