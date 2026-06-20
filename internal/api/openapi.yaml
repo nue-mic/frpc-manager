@@ -531,6 +531,122 @@ paths:
               type: object
               properties: { enabled: { type: boolean } }
       responses: { '204': { description: OK } }
+  /api/v1/configs/{id}/proxies/export:
+    post:
+      tags: [proxies]
+      summary: Export selected rules as split TOML or a portable envelope
+      description: >
+        Render the config's proxies/visitors (optionally filtered by kind and
+        names) either as two TOML fragments (proxiesToml / visitorsToml) or as a
+        self-describing portable v1 envelope (frpcManagerExport). When format is
+        omitted it defaults to toml; kind defaults to all.
+      parameters: [ { in: path, name: id, required: true, schema: { type: string } } ]
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                format: { type: string, enum: [toml, portable], default: toml }
+                kind:   { type: string, enum: [all, proxy, visitor], default: all }
+                names:  { type: array, items: { type: string }, description: 'Filter by primary name or range alias; empty selects everything of that kind' }
+      responses:
+        '200':
+          description: 'OK — toml form { format:"toml", kind, counts:{proxies,visitors}, proxiesToml, visitorsToml, filename }; portable form { format:"portable", kind, counts, portableJson (stringified PortableEnvelope), filename }'
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  format:       { type: string, enum: [toml, portable] }
+                  kind:         { type: string, enum: [all, proxy, visitor] }
+                  counts:
+                    type: object
+                    properties:
+                      proxies:  { type: integer }
+                      visitors: { type: integer }
+                  proxiesToml:  { type: string, description: 'toml form only — [[proxies]] fragment ("" when none)' }
+                  visitorsToml: { type: string, description: 'toml form only — [[visitors]] fragment ("" when none)' }
+                  portableJson: { type: string, description: 'portable form only — indented JSON string of a PortableEnvelope' }
+                  filename:     { type: string }
+        '404': { description: Config not found }
+        '500': { description: 'internal — build envelope / render toml failed' }
+  /api/v1/configs/{id}/proxies/parse:
+    post:
+      tags: [proxies]
+      summary: Dry-run parse a pasted rule bundle (auto-detect, no write)
+      description: >
+        Auto-detect the paste format (portable JSON / toml / ini), list each
+        item with a conversion preview, derive a pairing visitor for pairable
+        stcp/xtcp/sudp proxies (suggestedVisitor), and flag name conflicts
+        against this config's single flat namespace. format is accepted but
+        ignored — detection is always automatic. Never writes anything.
+      parameters: [ { in: path, name: id, required: true, schema: { type: string } } ]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [content]
+              properties:
+                content: { type: string, description: 'Raw pasted text (portable JSON, TOML or INI fragment)' }
+                format:  { type: string, description: 'Accepted but ignored; detection is automatic' }
+      responses:
+        '200':
+          description: >
+            OK — { detectedFormat, items[], source? }. On a parse failure the
+            same 200 carries { detectedFormat:"unknown", items:[], globalError }.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  detectedFormat: { type: string, enum: [portable, toml, ini, unknown] }
+                  items:
+                    type: array
+                    items: { $ref: '#/components/schemas/RuleParseItem' }
+                  source:      { $ref: '#/components/schemas/PortableSource' }
+                  globalError: { type: string, description: 'present only when detectedFormat is "unknown"' }
+        '404': { description: Config not found }
+  /api/v1/configs/{id}/proxies/import:
+    post:
+      tags: [proxies]
+      summary: Commit a resolved import batch (one write + one reload)
+      description: >
+        Apply a batch of resolved import items in one shot (single Update → one
+        hot-reload → one config.changed event). Best-effort: a single bad item
+        is recorded as failed/skipped and the rest proceed; the call only errors
+        on a fatal write. Each item carries an action and exactly one of
+        proxy/visitor (the v1 Typed* payload). Conflicts are keyed off one flat
+        namespace shared by proxies and visitors.
+      parameters: [ { in: path, name: id, required: true, schema: { type: string } } ]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [items]
+              properties:
+                items:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      kind:    { type: string, enum: [proxy, visitor] }
+                      action:  { type: string, enum: [create, overwrite, rename, skip] }
+                      newName: { type: string, description: 'required when action is "rename"' }
+                      proxy:   { type: object, additionalProperties: true, description: 'v1 TypedProxyConfig — supply for a proxy item' }
+                      visitor: { type: object, additionalProperties: true, description: 'v1 TypedVisitorConfig — supply for a visitor item' }
+      responses:
+        '200':
+          description: 'OK — RuleImportSummary { applied, skipped, failed, results[] }'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/RuleImportSummary' }
+        '404': { description: Config not found }
   /api/v1/configs/{id}/start:
     post:
       tags: [lifecycle]
@@ -755,3 +871,68 @@ components:
         config_id: { type: string }
         ts:        { type: string, format: date-time }
         data:      { type: object, additionalProperties: true }
+    PortableSource:
+      description: >
+        Where an exported rule bundle came from. Carries the frp `user` so the
+        importer can derive a visitor's serverUser. For toml/ini pastes only
+        `user` is populated; portable envelopes carry the full set.
+      type: object
+      properties:
+        configId:   { type: string }
+        configName: { type: string }
+        user:       { type: string }
+        daemon:     { type: string }
+        frp:        { type: string }
+    PortableEnvelope:
+      description: >
+        可移植信封 v1 — a self-describing, version-tagged JSON bundle of
+        proxies/visitors used to move rules between frpc-manager systems.
+        proxies/visitors are upstream camelCase v1 objects (their Typed*
+        MarshalJSON shape). Returned (stringified) as portableJson by the
+        export endpoint and accepted as paste content by the parse endpoint.
+      type: object
+      properties:
+        frpcManagerExport: { type: string, example: v1, description: 'Envelope marker/version; "v1" identifies this format' }
+        kind:              { type: string, example: rules }
+        exportedAt:        { type: string }
+        source:            { $ref: '#/components/schemas/PortableSource' }
+        proxies:
+          type: array
+          items: { type: object, additionalProperties: true, description: 'v1 TypedProxyConfig (camelCase)' }
+        visitors:
+          type: array
+          items: { type: object, additionalProperties: true, description: 'v1 TypedVisitorConfig (camelCase)' }
+    RuleParseItem:
+      description: >
+        One previewed item from the parse dry-run. proxy items may carry a
+        derived suggestedVisitor when pairable; conflict is "name_exists" when
+        the name already exists in this config (else null/absent).
+      type: object
+      properties:
+        name:    { type: string }
+        type:    { type: string }
+        kind:    { type: string, enum: [proxy, visitor] }
+        summary: { type: string }
+        raw:     { type: object, additionalProperties: true, description: 'v1 Typed{Proxy,Visitor}Config conversion preview' }
+        conflict: { type: string, enum: [name_exists], nullable: true }
+        error:    { type: string, description: 'present when the proxy could not be converted' }
+        pairable: { type: boolean, description: 'true for stcp/xtcp/sudp proxies that can derive a visitor' }
+        suggestedVisitor: { type: object, additionalProperties: true, description: 'derived v1 TypedVisitorConfig (present when pairable)' }
+    RuleImportResult:
+      description: One per-item outcome from an import batch.
+      type: object
+      properties:
+        name:      { type: string }
+        finalName: { type: string, description: 'effective name after a rename (empty for skipped/failed)' }
+        status:    { type: string, enum: [created, overwritten, renamed, skipped, failed] }
+        error:     { type: string }
+    RuleImportSummary:
+      description: Best-effort import result — counts plus a per-item results list.
+      type: object
+      properties:
+        applied: { type: integer }
+        skipped: { type: integer }
+        failed:  { type: integer }
+        results:
+          type: array
+          items: { $ref: '#/components/schemas/RuleImportResult' }
