@@ -35,6 +35,7 @@ import { toml } from '@codemirror/legacy-modes/mode/toml';
 import { oneDark } from '@codemirror/theme-one-dark';
 import { EditorView } from '@codemirror/view';
 import client from '../api/client';
+import { copyToClipboard } from '../utils/clipboard';
 
 const { Text } = Typography;
 const { TextArea } = Input;
@@ -138,12 +139,8 @@ const copyText = async (
   s: string,
   msg: { success: (m: string) => void; error: (m: string) => void },
 ) => {
-  try {
-    await navigator.clipboard.writeText(s);
-    msg.success('已复制到剪贴板');
-  } catch {
-    msg.error('复制失败，浏览器可能不允许访问剪贴板');
-  }
+  if (await copyToClipboard(s)) msg.success('已复制到剪贴板');
+  else msg.error('复制失败，浏览器可能不允许访问剪贴板');
 };
 
 const download = (s: string, filename: string) => {

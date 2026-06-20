@@ -28,6 +28,7 @@ import {
   findSnippet,
   type Snippet,
 } from './tomlSnippets';
+import { copyToClipboard } from '../utils/clipboard';
 
 const { Title, Text, Paragraph } = Typography;
 
@@ -73,12 +74,8 @@ const TomlReference: React.FC = () => {
 
   const handleCopyCurrent = async () => {
     if (!current) return;
-    try {
-      await navigator.clipboard.writeText(current.toml);
-      message.success(`已复制片段「${current.title}」到剪贴板`);
-    } catch {
-      message.error('复制失败，浏览器可能不允许访问剪贴板');
-    }
+    if (await copyToClipboard(current.toml)) message.success(`已复制片段「${current.title}」到剪贴板`);
+    else message.error('复制失败，浏览器可能不允许访问剪贴板');
   };
 
   const handleDownloadCurrent = () => {
@@ -98,12 +95,8 @@ const TomlReference: React.FC = () => {
     const all = TOML_SNIPPETS.map((g) =>
       g.items.map((it) => `\n# ====== ${g.label} / ${it.title} ======\n${it.toml}`).join('\n')
     ).join('\n');
-    try {
-      await navigator.clipboard.writeText(all);
-      message.success(`已复制全部 ${TOML_SNIPPETS.reduce((a, g) => a + g.items.length, 0)} 个片段`);
-    } catch {
-      message.error('复制失败');
-    }
+    if (await copyToClipboard(all)) message.success(`已复制全部 ${TOML_SNIPPETS.reduce((a, g) => a + g.items.length, 0)} 个片段`);
+    else message.error('复制失败');
   };
 
   return (

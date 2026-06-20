@@ -3,8 +3,8 @@ import type { Page, Locator } from '@playwright/test';
 export const login = {
   // Input.Password with placeholder="API Token (Bearer 令牌)"
   tokenInput: (p: Page): Locator => p.getByPlaceholder(/API Token|Bearer/i),
-  // Submit button text: "验证并进入控制台"
-  submitBtn: (p: Page): Locator => p.getByRole('button', { name: /验证并进入控制台|登录|login|sign in/i }),
+  // Submit button text: "进入控制台"（曾为「验证并进入控制台」，已改名）
+  submitBtn: (p: Page): Locator => p.getByRole('button', { name: /进入控制台|验证|登录|login|sign in/i }),
   errorMsg: (p: Page): Locator => p.getByText(/无效|invalid|失败|failed/i),
 };
 

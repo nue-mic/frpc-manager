@@ -68,6 +68,7 @@ import RulesTransferModal from '../components/RulesTransferModal';
 import { useTheme } from '../theme/ThemeContext';
 import { useEventSubscription } from '../events/EventStreamContext';
 import { stripLogNoise } from '../utils/log';
+import { copyToClipboard } from '../utils/clipboard';
 import type { InstanceStateData } from '../events/types';
 
 const { Title, Text } = Typography;
@@ -536,7 +537,7 @@ const Configs: React.FC = () => {
       });
       const json = data.portableJson || '';
       if (!json) { message.error('导出为空'); return; }
-      await navigator.clipboard.writeText(json);
+      if (!(await copyToClipboard(json))) { message.error('复制失败：浏览器不允许访问剪贴板'); return; }
       const pairable = kind === 'proxy' && ['stcp', 'xtcp', 'sudp'].includes(record.type);
       message.success(
         pairable
