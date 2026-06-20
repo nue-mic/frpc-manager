@@ -58,6 +58,7 @@ func NewRouter(d Deps) http.Handler {
 
 	configs := NewConfigsHandler(d.Manager, d.Logger)
 	proxies := NewProxiesHandler(d.Manager, d.Logger)
+	rulesio := NewRulesIOHandler(d.Manager, d.Logger)
 	life := NewLifecycleHandler(d.Manager, d.Logger)
 	status := NewStatusHandler(d.Manager)
 	validate := NewValidateHandler()
@@ -115,6 +116,9 @@ func NewRouter(d Deps) http.Handler {
 		r.Post("/api/v1/configs/{id}/proxies/reorder", proxies.Reorder)
 		r.Post("/api/v1/configs/{id}/proxies/batch-delete", proxies.BatchDelete)
 		r.Post("/api/v1/configs/{id}/proxies/move", proxies.Move)
+		r.Post("/api/v1/configs/{id}/proxies/export", rulesio.Export)
+		r.Post("/api/v1/configs/{id}/proxies/parse", rulesio.Parse)
+		r.Post("/api/v1/configs/{id}/proxies/import", rulesio.Import)
 		r.Get("/api/v1/configs/{id}/proxies/{name}", proxies.Get)
 		r.Put("/api/v1/configs/{id}/proxies/{name}", proxies.Update)
 		r.Delete("/api/v1/configs/{id}/proxies/{name}", proxies.Delete)
