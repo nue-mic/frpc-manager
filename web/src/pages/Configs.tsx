@@ -15,6 +15,7 @@ import {
   DeleteOutlined,
   CopyOutlined,
   EditOutlined,
+  ShareAltOutlined,
   CodeOutlined,
   PlusOutlined,
   MinusCircleOutlined,
@@ -519,6 +520,31 @@ const Configs: React.FC = () => {
       loadProxies(activeConfigId);
     } catch (err) {
       message.error('删除代理失败');
+    }
+  };
+
+  // 一键分享：把单条规则导出为「可移植信封」并拷到剪贴板。可配对代理
+  // (stcp/xtcp/sudp) 提示「供他人做访客」，其余为通用复制。后端已在信封里
+  // 带上来源(节点/实例名)，对端粘贴时会显示来源并自动推导配对访客。
+  const handleShareRule = async (record: any) => {
+    const kind = record._kind === 'visitor' ? 'visitor' : 'proxy';
+    try {
+      const { data } = await client.post(`/api/v1/configs/${activeConfigId}/proxies/export`, {
+        format: 'portable',
+        kind,
+        names: [record.name],
+      });
+      const json = data.portableJson || '';
+      if (!json) { message.error('导出为空'); return; }
+      await navigator.clipboard.writeText(json);
+      const pairable = kind === 'proxy' && ['stcp', 'xtcp', 'sudp'].includes(record.type);
+      message.success(
+        pairable
+          ? `已复制「${record.name}」的配对信封，去目标系统配置页粘贴即可自动生成访客`
+          : `已复制「${record.name}」的可移植信封，去目标系统粘贴即可导入`,
+      );
+    } catch (e: any) {
+      message.error('复制失败：' + (e?.response?.data?.error?.message || e?.message || ''));
     }
   };
 
@@ -1711,6 +1737,11 @@ const Configs: React.FC = () => {
                                   </Tooltip>
                                   <Tooltip title="复制添加（沿用配置、自动生成新名称）">
                                     <Button size="small" type="text" icon={<CopyOutlined />} onClick={() => openProxyDrawer(record, record._kind, true)} />
+                                  </Tooltip>
+                                  <Tooltip title={record._kind !== 'visitor' && ['stcp', 'xtcp', 'sudp'].includes(record.type)
+                                    ? '复制配对信封（供他人做访客）'
+                                    : '复制为可移植信封'}>
+                                    <Button size="small" type="text" icon={<ShareAltOutlined />} onClick={() => handleShareRule(record)} />
                                   </Tooltip>
                                   <Popconfirm
                                     title="确定删除此代理规则？"
