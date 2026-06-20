@@ -113,17 +113,19 @@ func TestRulesIO_ExportParseImportRoundTrip(t *testing.T) {
 		t.Fatalf("suggestedVisitor empty: %s", string(it.SuggestedVisitor))
 	}
 
-	// --- 3) Import the suggested visitor ---
-	// DerivePairVisitor mirrors the proxy name ("ssh"); since ApplyRuleImport
-	// keeps proxies and visitors in one flat name space, give the visitor a
-	// distinct name to avoid the (correct) "name already exists" rejection.
-	// Round-trip through a generic map so the override goes through the same
-	// camelCase wire shape the handler decodes.
+	// --- 3) Import the suggested visitor directly ---
+	// The target config already holds proxy "ssh", and apply keeps proxies and
+	// visitors in one flat name space. Parse is now collision-aware: the
+	// suggested visitor name must already have been bumped off "ssh" to
+	// "ssh-visitor", so the default "create" action succeeds with no manual
+	// rename. Decode the suggested visitor and import it as-is.
 	var sv map[string]any
 	if err := json.Unmarshal(it.SuggestedVisitor, &sv); err != nil {
 		t.Fatalf("decode suggestedVisitor: %v", err)
 	}
-	sv["name"] = "ssh-visitor"
+	if got := sv["name"]; got != "ssh-visitor" {
+		t.Fatalf("suggestedVisitor name = %v, want collision-avoided %q", got, "ssh-visitor")
+	}
 	imRec := postJSON(t, h.Import, "A", map[string]any{
 		"items": []map[string]any{
 			{"kind": "visitor", "action": "create", "visitor": sv},
@@ -160,5 +162,70 @@ func TestRulesIO_ExportParseImportRoundTrip(t *testing.T) {
 	}
 	if found.SK != "topsecret" || found.ServerName != "ssh" {
 		t.Fatalf("imported visitor fields wrong: %+v", found)
+	}
+}
+
+// TestRulesIO_ParseCrossKindConflict verifies Parse judges name conflicts off a
+// single flat namespace over ALL rules (proxies + visitors), matching apply: a
+// config holding a VISITOR named "v1" must flag an incoming PROXY named "v1" as
+// conflicting, even though they are different kinds.
+func TestRulesIO_ParseCrossKindConflict(t *testing.T) {
+	tmp := t.TempDir()
+	m := newTestManager(t, tmp)
+
+	// Config "B" holds a visitor named "v1" (a stcp visitor for some server).
+	body := []byte(`serverAddr = "127.0.0.1"
+serverPort = 7000
+user = "node-b"
+
+[[visitors]]
+name = "v1"
+type = "stcp"
+serverName = "remote-ssh"
+secretKey = "topsecret"
+bindAddr = "127.0.0.1"
+bindPort = 6000
+`)
+	data, err := config.UnmarshalClientConf(body)
+	if err != nil {
+		t.Fatalf("UnmarshalClientConf: %v", err)
+	}
+	if err := m.Create("B", data); err != nil {
+		t.Fatalf("Create B: %v", err)
+	}
+
+	h := NewRulesIOHandler(m, testLogger())
+
+	// Parse a portable bundle that carries a PROXY also named "v1".
+	bundle := `{
+  "frpcManagerExport": "rules.v1",
+  "proxies": [
+    {"name": "v1", "type": "tcp", "localIP": "127.0.0.1", "localPort": 80}
+  ]
+}`
+	paRec := postJSON(t, h.Parse, "B", map[string]any{"content": bundle})
+	if paRec.Code != http.StatusOK {
+		t.Fatalf("parse: expected 200, got %d body=%s", paRec.Code, paRec.Body.String())
+	}
+	var paResp struct {
+		Items []struct {
+			Name     string `json:"name"`
+			Kind     string `json:"kind"`
+			Conflict string `json:"conflict"`
+		} `json:"items"`
+	}
+	if err := json.Unmarshal(paRec.Body.Bytes(), &paResp); err != nil {
+		t.Fatalf("decode parse: %v", err)
+	}
+	if len(paResp.Items) != 1 {
+		t.Fatalf("expected 1 item, got %d: %s", len(paResp.Items), paRec.Body.String())
+	}
+	item := paResp.Items[0]
+	if item.Kind != "proxy" || item.Name != "v1" {
+		t.Fatalf("unexpected item: %+v", item)
+	}
+	if item.Conflict != "name_exists" {
+		t.Fatalf("cross-kind conflict not surfaced: conflict = %q, want %q (body=%s)",
+			item.Conflict, "name_exists", paRec.Body.String())
 	}
 }

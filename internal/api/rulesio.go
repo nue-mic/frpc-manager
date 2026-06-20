@@ -95,6 +95,7 @@ func (h *RulesIOHandler) Export(w http.ResponseWriter, r *http.Request) {
 			Daemon: version.Number, Frp: version.FRPVersion,
 		})
 		if err != nil {
+			h.log.Warn("rules export: build portable envelope failed", "config_id", id, "error", err)
 			WriteError(w, http.StatusInternalServerError, CodeInternal, "build envelope: "+err.Error(), nil)
 			return
 		}
@@ -107,6 +108,7 @@ func (h *RulesIOHandler) Export(w http.ResponseWriter, r *http.Request) {
 	default: // toml
 		pt, vt, err := config.RenderRulesTOML(proxies, visitors)
 		if err != nil {
+			h.log.Warn("rules export: render toml failed", "config_id", id, "error", err)
 			WriteError(w, http.StatusInternalServerError, CodeInternal, "render toml: "+err.Error(), nil)
 			return
 		}
@@ -135,13 +137,12 @@ func (h *RulesIOHandler) Parse(w http.ResponseWriter, r *http.Request) {
 	if writeManagerError(w, err) {
 		return
 	}
-	existProxy, existVisitor := map[string]bool{}, map[string]bool{}
+	// ApplyRuleImport keys conflicts off a single flat namespace over ALL of
+	// data.Proxies (proxies and visitors share one name space), so judge
+	// conflicts the same way here to stay in lockstep with apply.
+	exist := map[string]bool{}
 	for _, p := range data.Proxies {
-		if p.IsVisitor() {
-			existVisitor[p.Name] = true
-		} else {
-			existProxy[p.Name] = true
-		}
+		exist[p.Name] = true
 	}
 
 	parsed, perr := config.ParseRules([]byte(req.Content))
@@ -157,6 +158,7 @@ func (h *RulesIOHandler) Parse(w http.ResponseWriter, r *http.Request) {
 		sourceUser = parsed.Source.User
 	}
 	used := map[int]bool{}
+	suggested := map[string]bool{} // suggested-visitor names chosen within this batch
 	items := make([]map[string]any, 0, len(parsed.Proxies))
 	for _, p := range parsed.Proxies {
 		item := map[string]any{
@@ -167,7 +169,7 @@ func (h *RulesIOHandler) Parse(w http.ResponseWriter, r *http.Request) {
 		if p.IsVisitor() {
 			item["kind"] = "visitor"
 			item["raw"] = mustMarshal(config.ClientVisitorToV1(p))
-			item["conflict"] = conflictTag(existVisitor[p.Name])
+			item["conflict"] = conflictTag(exist[p.Name])
 		} else {
 			item["kind"] = "proxy"
 			conv, e := config.ClientProxyToV1(p)
@@ -176,11 +178,17 @@ func (h *RulesIOHandler) Parse(w http.ResponseWriter, r *http.Request) {
 			} else {
 				item["raw"] = mustMarshal(conv[0])
 			}
-			item["conflict"] = conflictTag(existProxy[p.Name])
+			item["conflict"] = conflictTag(exist[p.Name])
 			if config.Pairable(p) {
 				item["pairable"] = true
 				port := h.m.SuggestVisitorBindPort(p.Type, "0.0.0.0", 10000, used)
 				sv := config.DerivePairVisitor(p, sourceUser, "0.0.0.0", port)
+				// DerivePairVisitor mirrors the proxy name; since apply uses one
+				// flat namespace, pick a name that collides with neither existing
+				// rules nor an earlier suggestion in this batch so the default
+				// "create" action succeeds and the preview shows the real name.
+				sv.Name = uniqueSuggestedName(p.Name, exist, suggested)
+				suggested[sv.Name] = true
 				item["suggestedVisitor"] = mustMarshal(config.ClientVisitorToV1(sv))
 			}
 		}
@@ -245,6 +253,26 @@ func ruleSummary(p *config.Proxy) string {
 		return p.Type + " · localPort " + p.LocalPort
 	}
 	return p.Type
+}
+
+// uniqueSuggestedName picks a name for a derived pairing visitor that collides
+// with neither existing rule names (exist) nor names already chosen in this
+// batch (suggested). It tries base, then base+"-visitor", then
+// base+"-visitor-2", base+"-visitor-3", … returning the first free candidate.
+func uniqueSuggestedName(base string, exist, suggested map[string]bool) string {
+	taken := func(n string) bool { return exist[n] || suggested[n] }
+	if !taken(base) {
+		return base
+	}
+	if cand := base + "-visitor"; !taken(cand) {
+		return cand
+	}
+	for i := 2; ; i++ {
+		cand := base + "-visitor-" + strconv.Itoa(i)
+		if !taken(cand) {
+			return cand
+		}
+	}
 }
 
 func conflictTag(exists bool) any {
