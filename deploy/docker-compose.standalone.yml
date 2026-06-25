@@ -1,7 +1,7 @@
 
 services:
   frpcmgrd:
-    image: ghcr.io/mia-clark/frpc-manager:${FRPCMGR_IMAGE_TAG:-latest}
+    image: ghcr.io/nue-mic/frpc-manager:${FRPCMGR_IMAGE_TAG:-latest}
     container_name: docker_frpcmgrd
     restart: always
     network_mode: host
