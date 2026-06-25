@@ -16,7 +16,7 @@
 
 services:
   frpcmgrd:
-    image: ghcr.io/mia-clark/frpc-manager:${FRPCMGR_IMAGE_TAG:-latest}
+    image: ghcr.io/nue-mic/frpc-manager:${FRPCMGR_IMAGE_TAG:-latest}
     container_name: docker_frpcmgrd
     restart: always
     # host 网络：TUN 网卡与路由建在宿主网络命名空间，组网才能真正打通。
