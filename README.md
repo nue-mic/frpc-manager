@@ -5,7 +5,7 @@
 
 简单说：你不用再手动写一堆 `frpc.toml`、再用 `systemctl` 一个个管理了。装上它，打开网页，点点鼠标就能新增/启动/停止/查看日志/监控你的所有穿透隧道。
 
-> 本项目从 Windows 桌面版 [frpmgr](https://github.com/mia-clark/frpc-manager) 演化而来，去掉了 Windows GUI，保留了配置模型、热重载和内嵌 frpc 的能力，改造成 Linux/服务器友好的服务。内置 frp `v0.69.1`。
+> 本项目从 Windows 桌面版 [frpmgr](https://github.com/nue-mic/frpc-manager) 演化而来，去掉了 Windows GUI，保留了配置模型、热重载和内嵌 frpc 的能力，改造成 Linux/服务器友好的服务。内置 frp `v0.69.1`。
 
 ---
 
@@ -90,10 +90,10 @@ curl -fsSL https://gh-raw.966788.xyz/frpc-mgr/install.sh | sh -s -- --uninstall
 
 ```sh
 # 交互安装
-sh -c "$(curl -fsSL https://raw.githubusercontent.com/mia-clark/frpc-manager/main/scripts/install.sh)"
+sh -c "$(curl -fsSL https://raw.githubusercontent.com/nue-mic/frpc-manager/main/scripts/install.sh)"
 
 # 全自动（带参数）
-curl -fsSL https://raw.githubusercontent.com/mia-clark/frpc-manager/main/scripts/install.sh | sh -s -- -y -p 9000 -t 我的令牌
+curl -fsSL https://raw.githubusercontent.com/nue-mic/frpc-manager/main/scripts/install.sh | sh -s -- -y -p 9000 -t 我的令牌
 ```
 
 ### 🪟 Windows 一键安装（管理员 PowerShell）
@@ -102,16 +102,16 @@ curl -fsSL https://raw.githubusercontent.com/mia-clark/frpc-manager/main/scripts
 
 ```powershell
 # 全自动（默认端口 18080 + 自动生成强随机令牌）
-$env:ASSUME_YES=1; irm https://raw.githubusercontent.com/mia-clark/frpc-manager/main/scripts/install.ps1 | iex
+$env:ASSUME_YES=1; irm https://raw.githubusercontent.com/nue-mic/frpc-manager/main/scripts/install.ps1 | iex
 
 # 全自动 + 指定端口
-$env:FRPCMGR_PORT=9000; $env:ASSUME_YES=1; irm https://raw.githubusercontent.com/mia-clark/frpc-manager/main/scripts/install.ps1 | iex
+$env:FRPCMGR_PORT=9000; $env:ASSUME_YES=1; irm https://raw.githubusercontent.com/nue-mic/frpc-manager/main/scripts/install.ps1 | iex
 
 # 全自动 + 指定端口 + 指定令牌（最常用！）
-$env:FRPCMGR_PORT=9000; $env:FRPCMGR_API_TOKEN='我的强随机令牌'; $env:ASSUME_YES=1; irm https://raw.githubusercontent.com/mia-clark/frpc-manager/main/scripts/install.ps1 | iex
+$env:FRPCMGR_PORT=9000; $env:FRPCMGR_API_TOKEN='我的强随机令牌'; $env:ASSUME_YES=1; irm https://raw.githubusercontent.com/nue-mic/frpc-manager/main/scripts/install.ps1 | iex
 
 # 一行卸载
-irm https://raw.githubusercontent.com/mia-clark/frpc-manager/main/scripts/install.ps1 | iex; .\install.ps1 -Uninstall
+irm https://raw.githubusercontent.com/nue-mic/frpc-manager/main/scripts/install.ps1 | iex; .\install.ps1 -Uninstall
 ```
 
 > Windows PowerShell 通过 `irm | iex` 管道执行脚本时**无法直接传命令行参数**，所以用环境变量代替（`install.ps1` 已支持读取 `FRPCMGR_*` / `ASSUME_YES`）。**自动选最快下载源**（智能代理 + tar/zip 校验防伪 200，详见"下载策略"）。
@@ -134,7 +134,7 @@ curl -fsSL https://gh-raw.966788.xyz/frpc-mgr/install.sh | sh -s -- -y -p 9000 -
 
 **Windows**（NSSM 包装为 Windows 服务，**需管理员 PowerShell**）
 ```powershell
-$env:FRPCMGR_PORT=9000; $env:FRPCMGR_API_TOKEN='我的强随机令牌'; $env:ASSUME_YES=1; irm https://raw.githubusercontent.com/mia-clark/frpc-manager/main/scripts/install.ps1 | iex
+$env:FRPCMGR_PORT=9000; $env:FRPCMGR_API_TOKEN='我的强随机令牌'; $env:ASSUME_YES=1; irm https://raw.githubusercontent.com/nue-mic/frpc-manager/main/scripts/install.ps1 | iex
 ```
 
 > Linux / macOS 用同一个 `install.sh`（脚本自动识别系统和架构），所以命令一字不差；Windows 是独立 `install.ps1` + NSSM。三套都装完即用 `fmc start/status/info` 等统一命令运维。
@@ -196,7 +196,7 @@ curl -fsSL https://gh-raw.966788.xyz/frpc-mgr/install.sh | sh -s -- --uninstall
 | macOS | launchd | ✅ |
 | 其它（无 systemd/OpenRC） | 打印手动后台运行命令 | 需手动 |
 
-> CPU 架构自动识别：`amd64` / `arm64` / `armv7`（树莓派等）。Windows 用户请用下面的 Docker 方式，或到 [Releases](https://github.com/mia-clark/frpc-manager/releases) 下载 Windows 版手动运行。
+> CPU 架构自动识别：`amd64` / `arm64` / `armv7`（树莓派等）。Windows 用户请用下面的 Docker 方式，或到 [Releases](https://github.com/nue-mic/frpc-manager/releases) 下载 Windows 版手动运行。
 
 ---
 
@@ -208,7 +208,7 @@ curl -fsSL https://gh-raw.966788.xyz/frpc-mgr/install.sh | sh -s -- --uninstall
 docker run -d --name frpcmgrd --network host \
   -e FRPCMGR_API_TOKEN="$(openssl rand -hex 32)" \
   -v $(pwd)/data:/data \
-  ghcr.io/mia-clark/frpc-manager:latest
+  ghcr.io/nue-mic/frpc-manager:latest
 ```
 
 镜像在每次推送到 `main` 和每个发布标签时自动构建（支持 amd64 + arm64）。
@@ -218,8 +218,8 @@ docker run -d --name frpcmgrd --network host \
 在任意空目录里：
 
 ```bash
-curl -O https://raw.githubusercontent.com/mia-clark/frpc-manager/main/deploy/docker-compose.standalone.yml
-curl -O https://raw.githubusercontent.com/mia-clark/frpc-manager/main/deploy/.env.example
+curl -O https://raw.githubusercontent.com/nue-mic/frpc-manager/main/deploy/docker-compose.standalone.yml
+curl -O https://raw.githubusercontent.com/nue-mic/frpc-manager/main/deploy/.env.example
 mv .env.example .env
 # 编辑 .env，至少把 FRPCMGR_API_TOKEN 设成一个真实令牌
 docker compose -f docker-compose.standalone.yml up -d
@@ -227,7 +227,7 @@ docker compose -f docker-compose.standalone.yml up -d
 
 ### 方式三：手动下载二进制
 
-到 [Releases](https://github.com/mia-clark/frpc-manager/releases) 下载对应平台的压缩包（Linux amd64/arm64/armv7、macOS amd64/arm64、Windows amd64/arm64），解压后：
+到 [Releases](https://github.com/nue-mic/frpc-manager/releases) 下载对应平台的压缩包（Linux amd64/arm64/armv7、macOS amd64/arm64、Windows amd64/arm64），解压后：
 
 ```bash
 FRPCMGR_API_TOKEN=$(openssl rand -hex 32) ./frpcmgrd serve
@@ -235,7 +235,7 @@ FRPCMGR_API_TOKEN=$(openssl rand -hex 32) ./frpcmgrd serve
 
 ### 方式四：OpenWrt 路由器（一个 all ipk，到处装）
 
-到 [Releases](https://github.com/mia-clark/frpc-manager/releases) 下载**唯一**的 `luci-app-frpcmgrd_<版本>-1_all.ipk`（不分架构），上传到路由器后：
+到 [Releases](https://github.com/nue-mic/frpc-manager/releases) 下载**唯一**的 `luci-app-frpcmgrd_<版本>-1_all.ipk`（不分架构），上传到路由器后：
 
 ```sh
 opkg install luci-app-frpcmgrd_<版本>-1_all.ipk
