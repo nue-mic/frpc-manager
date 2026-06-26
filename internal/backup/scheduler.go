@@ -13,7 +13,7 @@ import (
 
 	"github.com/robfig/cron/v3"
 
-	"github.com/mia-clark/frpc-manager/internal/eventbus"
+	"github.com/nue-mic/frpc-manager/internal/eventbus"
 )
 
 // backupJobTimeout bounds a single backup run (build + upload + retention).

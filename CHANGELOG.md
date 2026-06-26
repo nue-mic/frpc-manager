@@ -7,7 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### 重大变更（与 frps-manager 对称改名）
-- 二进制/服务名 `frpmgrd` → `frpcmgrd`、环境变量前缀 `FRPMGR_` → `FRPCMGR_`、Go module → `github.com/mia-clark/frpc-manager`、数据目录 `/var/lib/frpmgrd` → `/var/lib/frpcmgrd`，与服务端 `frps-manager` 严格区分。
+- 二进制/服务名 `frpmgrd` → `frpcmgrd`、环境变量前缀 `FRPMGR_` → `FRPCMGR_`、Go module → `github.com/nue-mic/frpc-manager`、数据目录 `/var/lib/frpmgrd` → `/var/lib/frpcmgrd`，与服务端 `frps-manager` 严格区分。
 
 ### 新增
 - `fmc upgrade-legacy`：一键把旧版 `frpmgrd` 部署（服务/数据/配置）迁移到新 `frpcmgrd`，幂等、可随时执行；自动把 `FRPMGR_*` 配置转为 `FRPCMGR_*`、迁移数据目录、清理旧服务与二进制。

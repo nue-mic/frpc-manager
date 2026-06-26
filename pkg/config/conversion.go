@@ -12,7 +12,7 @@ import (
 	frputil "github.com/fatedier/frp/pkg/util/util"
 	"github.com/samber/lo"
 
-	"github.com/mia-clark/frpc-manager/pkg/consts"
+	"github.com/nue-mic/frpc-manager/pkg/consts"
 )
 
 func ClientCommonFromV1(c *v1.ClientCommonConfig) (r ClientCommon) {

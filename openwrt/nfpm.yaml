@@ -21,9 +21,9 @@ version: "__PKG_VERSION__"
 release: "__PKG_RELEASE__"
 section: "net"
 priority: "optional"
-maintainer: "mia-clark <mia-clark@users.noreply.github.com>"
-vendor: "mia-clark"
-homepage: "https://github.com/mia-clark/frpc-manager"
+maintainer: "nue-mic <nue-mic@users.noreply.github.com>"
+vendor: "nue-mic"
+homepage: "https://github.com/nue-mic/frpc-manager"
 license: "GPL-3.0"
 description: |
   Headless FRP client manager (frpcmgrd), OpenWrt wrapper (all-arch).

@@ -16,8 +16,8 @@ import (
 	"github.com/coder/websocket"
 	"github.com/go-chi/chi/v5"
 
-	"github.com/mia-clark/frpc-manager/internal/manager"
-	"github.com/mia-clark/frpc-manager/pkg/config"
+	"github.com/nue-mic/frpc-manager/internal/manager"
+	"github.com/nue-mic/frpc-manager/pkg/config"
 )
 
 // TestLogsQuery_FiltersByInstancePrefix: 合并日志含 A/B 两实例的行，

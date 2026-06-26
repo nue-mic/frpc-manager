@@ -24,9 +24,9 @@ import (
 )
 
 const (
-	defaultRepo       = "mia-clark/frpc-manager"
-	defaultInstallSh  = "https://raw.githubusercontent.com/mia-clark/frpc-manager/main/scripts/install.sh"
-	defaultInstallPs1 = "https://raw.githubusercontent.com/mia-clark/frpc-manager/main/scripts/install.ps1"
+	defaultRepo       = "nue-mic/frpc-manager"
+	defaultInstallSh  = "https://raw.githubusercontent.com/nue-mic/frpc-manager/main/scripts/install.sh"
+	defaultInstallPs1 = "https://raw.githubusercontent.com/nue-mic/frpc-manager/main/scripts/install.ps1"
 	cacheTTL          = time.Hour
 	httpTimeout       = 12 * time.Second
 )
@@ -49,7 +49,7 @@ type Release struct {
 
 // Config configures an Updater.
 type Config struct {
-	// Repo is the "owner/name" GitHub repo. Defaults to mia-clark/frpc-manager.
+	// Repo is the "owner/name" GitHub repo. Defaults to nue-mic/frpc-manager.
 	Repo string
 	// InstallShURL / InstallPs1URL point at the installer scripts the spawned
 	// updater downloads. Empty values fall back to the official raw URLs,

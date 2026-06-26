@@ -15,10 +15,10 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/mia-clark/frpc-manager/internal/backup"
-	"github.com/mia-clark/frpc-manager/internal/eventbus"
-	"github.com/mia-clark/frpc-manager/pkg/config"
-	"github.com/mia-clark/frpc-manager/pkg/consts"
+	"github.com/nue-mic/frpc-manager/internal/backup"
+	"github.com/nue-mic/frpc-manager/internal/eventbus"
+	"github.com/nue-mic/frpc-manager/pkg/config"
+	"github.com/nue-mic/frpc-manager/pkg/consts"
 )
 
 // Options configures the Manager.

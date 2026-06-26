@@ -7,9 +7,9 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/mia-clark/frpc-manager/internal/manager"
-	"github.com/mia-clark/frpc-manager/pkg/config"
-	"github.com/mia-clark/frpc-manager/pkg/version"
+	"github.com/nue-mic/frpc-manager/internal/manager"
+	"github.com/nue-mic/frpc-manager/pkg/config"
+	"github.com/nue-mic/frpc-manager/pkg/version"
 )
 
 // RulesIOHandler serves rule-level export/parse/import under

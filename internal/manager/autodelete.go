@@ -4,7 +4,7 @@ import (
 	"log/slog"
 	"time"
 
-	"github.com/mia-clark/frpc-manager/pkg/config"
+	"github.com/nue-mic/frpc-manager/pkg/config"
 )
 
 // ArmAutoDelete schedules a one-shot timer that deletes the config when

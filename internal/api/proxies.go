@@ -7,8 +7,8 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/mia-clark/frpc-manager/internal/manager"
-	"github.com/mia-clark/frpc-manager/pkg/config"
+	"github.com/nue-mic/frpc-manager/internal/manager"
+	"github.com/nue-mic/frpc-manager/pkg/config"
 )
 
 // writeVisitorConflict renders a 409 visitor_port_conflict response from a

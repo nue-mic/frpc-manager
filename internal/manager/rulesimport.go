@@ -3,7 +3,7 @@ package manager
 import (
 	"strconv"
 
-	"github.com/mia-clark/frpc-manager/pkg/config"
+	"github.com/nue-mic/frpc-manager/pkg/config"
 )
 
 // SuggestVisitorBindPort returns the first port >= start that collides with no

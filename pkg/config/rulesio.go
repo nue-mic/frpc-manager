@@ -5,7 +5,7 @@ import (
 
 	"github.com/pelletier/go-toml/v2"
 
-	"github.com/mia-clark/frpc-manager/pkg/consts"
+	"github.com/nue-mic/frpc-manager/pkg/consts"
 )
 
 // PortableSource records where an exported rule bundle came from. It carries

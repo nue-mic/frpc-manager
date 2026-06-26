@@ -3,7 +3,7 @@ package api
 import (
 	"net/http"
 
-	"github.com/mia-clark/frpc-manager/internal/api/apiresp"
+	"github.com/nue-mic/frpc-manager/internal/api/apiresp"
 )
 
 // Re-exports of the apiresp helpers so handlers in this package can use

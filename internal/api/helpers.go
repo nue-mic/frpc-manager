@@ -8,7 +8,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
-	"github.com/mia-clark/frpc-manager/internal/manager"
+	"github.com/nue-mic/frpc-manager/internal/manager"
 )
 
 // pathID returns the chi URL param "id" or empty string.

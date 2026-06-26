@@ -9,9 +9,9 @@ import (
 
 	"github.com/coder/websocket"
 
-	"github.com/mia-clark/frpc-manager/internal/api/middleware"
-	"github.com/mia-clark/frpc-manager/internal/eventbus"
-	"github.com/mia-clark/frpc-manager/internal/manager"
+	"github.com/nue-mic/frpc-manager/internal/api/middleware"
+	"github.com/nue-mic/frpc-manager/internal/eventbus"
+	"github.com/nue-mic/frpc-manager/internal/manager"
 )
 
 // EventsHandler upgrades HTTP requests to WebSocket and streams events

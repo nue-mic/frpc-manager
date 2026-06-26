@@ -2,8 +2,8 @@ SHELL := /bin/sh
 VERSION ?= dev
 BUILD_DATE := $(shell date -u +%Y-%m-%d)
 LDFLAGS := -s -w \
-    -X github.com/mia-clark/frpc-manager/pkg/version.Number=$(VERSION) \
-    -X github.com/mia-clark/frpc-manager/pkg/version.BuildDate=$(BUILD_DATE)
+    -X github.com/nue-mic/frpc-manager/pkg/version.Number=$(VERSION) \
+    -X github.com/nue-mic/frpc-manager/pkg/version.BuildDate=$(BUILD_DATE)
 
 .PHONY: build build-host web web-install test vet tidy clean docker run ipk
 

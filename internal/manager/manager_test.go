@@ -6,8 +6,8 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/mia-clark/frpc-manager/internal/eventbus"
-	"github.com/mia-clark/frpc-manager/pkg/config"
+	"github.com/nue-mic/frpc-manager/internal/eventbus"
+	"github.com/nue-mic/frpc-manager/pkg/config"
 )
 
 // TestWriteConfig_UsesCombinedLogFile: 每个 instance 的 toml 写出后，

@@ -7,8 +7,8 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/mia-clark/frpc-manager/internal/eventbus"
-	"github.com/mia-clark/frpc-manager/pkg/config"
+	"github.com/nue-mic/frpc-manager/internal/eventbus"
+	"github.com/nue-mic/frpc-manager/pkg/config"
 )
 
 func newImportTestManager(t *testing.T) *Manager {

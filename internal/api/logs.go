@@ -12,10 +12,10 @@ import (
 
 	"github.com/coder/websocket"
 
-	"github.com/mia-clark/frpc-manager/internal/api/middleware"
-	"github.com/mia-clark/frpc-manager/internal/logtail"
-	"github.com/mia-clark/frpc-manager/internal/manager"
-	"github.com/mia-clark/frpc-manager/pkg/util"
+	"github.com/nue-mic/frpc-manager/internal/api/middleware"
+	"github.com/nue-mic/frpc-manager/internal/logtail"
+	"github.com/nue-mic/frpc-manager/internal/manager"
+	"github.com/nue-mic/frpc-manager/pkg/util"
 )
 
 // LogsHandler serves /api/v1/configs/{id}/logs*.

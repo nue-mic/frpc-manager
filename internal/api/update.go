@@ -4,8 +4,8 @@ import (
 	"log/slog"
 	"net/http"
 
-	"github.com/mia-clark/frpc-manager/internal/selfupdate"
-	"github.com/mia-clark/frpc-manager/pkg/version"
+	"github.com/nue-mic/frpc-manager/internal/selfupdate"
+	"github.com/nue-mic/frpc-manager/pkg/version"
 )
 
 // UpdateHandler serves the version-check and self-update endpoints:

@@ -7,7 +7,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/mia-clark/frpc-manager/pkg/config"
+	"github.com/nue-mic/frpc-manager/pkg/config"
 )
 
 // mustCreateStcpInstance creates a config "id" carrying one stcp proxy named

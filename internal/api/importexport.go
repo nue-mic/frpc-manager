@@ -15,9 +15,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/mia-clark/frpc-manager/internal/backup"
-	"github.com/mia-clark/frpc-manager/internal/manager"
-	"github.com/mia-clark/frpc-manager/pkg/config"
+	"github.com/nue-mic/frpc-manager/internal/backup"
+	"github.com/nue-mic/frpc-manager/internal/manager"
+	"github.com/nue-mic/frpc-manager/pkg/config"
 )
 
 // ImportExportHandler implements /api/v1/import/* and /api/v1/export/*.

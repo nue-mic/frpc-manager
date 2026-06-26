@@ -22,7 +22,7 @@
 # =============================================================================
 set -eu
 
-REPO="mia-clark/frpc-manager"
+REPO="nue-mic/frpc-manager"
 BIN_NAME="frpcmgrd"
 INSTALL_DIR="/usr/bin"
 LIBDIR="/usr/lib/frpcmgrd"

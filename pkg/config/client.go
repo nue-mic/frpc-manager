@@ -13,8 +13,8 @@ import (
 	"github.com/samber/lo"
 	"gopkg.in/ini.v1"
 
-	"github.com/mia-clark/frpc-manager/pkg/consts"
-	"github.com/mia-clark/frpc-manager/pkg/util"
+	"github.com/nue-mic/frpc-manager/pkg/consts"
+	"github.com/nue-mic/frpc-manager/pkg/util"
 )
 
 type ClientAuth struct {

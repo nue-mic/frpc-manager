@@ -9,7 +9,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/mia-clark/frpc-manager/internal/backup"
+	"github.com/nue-mic/frpc-manager/internal/backup"
 )
 
 // Meta is the persisted daemon-level metadata stored at /data/meta.json.

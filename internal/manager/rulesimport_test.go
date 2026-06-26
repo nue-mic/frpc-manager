@@ -3,7 +3,7 @@ package manager
 import (
 	"testing"
 
-	"github.com/mia-clark/frpc-manager/pkg/config"
+	"github.com/nue-mic/frpc-manager/pkg/config"
 )
 
 func TestSuggestVisitorBindPort(t *testing.T) {

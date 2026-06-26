@@ -7,7 +7,7 @@
 #   功能: 自动识别架构 -> 下载二进制 -> 安装 -> 注册服务 -> 开机自启 -> 健康检查
 #
 # 一行安装 (推荐, 管理员 PowerShell 中执行):
-#   irm https://raw.githubusercontent.com/mia-clark/frpc-manager/main/scripts/install.ps1 | iex
+#   irm https://raw.githubusercontent.com/nue-mic/frpc-manager/main/scripts/install.ps1 | iex
 #
 # 非交互 / 自定义示例 (先把脚本下到本地):
 #   powershell -ExecutionPolicy Bypass -File install.ps1 -Yes -Port 9000 -Token mysecret
@@ -42,7 +42,7 @@ $ErrorActionPreference = 'Stop'
 # ----------------------------------------------------------------------------
 # 常量配置
 # ----------------------------------------------------------------------------
-$Repo         = 'mia-clark/frpc-manager'
+$Repo         = 'nue-mic/frpc-manager'
 $BinName      = 'frpcmgrd.exe'
 $ServiceName  = 'frpcmgrd'
 $DisplayName  = 'frpcmgrd - FRP Manager Server'

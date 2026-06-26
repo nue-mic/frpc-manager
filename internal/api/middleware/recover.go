@@ -5,7 +5,7 @@ import (
 	"net/http"
 	"runtime/debug"
 
-	"github.com/mia-clark/frpc-manager/internal/api/apiresp"
+	"github.com/nue-mic/frpc-manager/internal/api/apiresp"
 )
 
 // Recover turns panics inside handlers into 500 responses instead of

@@ -7,7 +7,7 @@ import (
 	frpconfig "github.com/fatedier/frp/pkg/config"
 	v1 "github.com/fatedier/frp/pkg/config/v1"
 
-	"github.com/mia-clark/frpc-manager/pkg/consts"
+	"github.com/nue-mic/frpc-manager/pkg/consts"
 )
 
 // TestVNetCommonRoundTrip 验证客户端公共配置里的 virtualNet.address 与

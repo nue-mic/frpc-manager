@@ -3,7 +3,7 @@ package manager
 import (
 	"testing"
 
-	"github.com/mia-clark/frpc-manager/pkg/config"
+	"github.com/nue-mic/frpc-manager/pkg/config"
 )
 
 // visitorCfg builds a ClientConfig holding one visitor of the given type/addr/port.

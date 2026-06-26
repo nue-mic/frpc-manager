@@ -12,8 +12,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/mia-clark/frpc-manager/internal/backup"
-	"github.com/mia-clark/frpc-manager/internal/manager"
+	"github.com/nue-mic/frpc-manager/internal/backup"
+	"github.com/nue-mic/frpc-manager/internal/manager"
 )
 
 // Timeouts for channel operations.

@@ -1,4 +1,4 @@
-module github.com/mia-clark/frpc-manager
+module github.com/nue-mic/frpc-manager
 
 go 1.25.0
 

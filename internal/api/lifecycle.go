@@ -4,7 +4,7 @@ import (
 	"log/slog"
 	"net/http"
 
-	"github.com/mia-clark/frpc-manager/internal/manager"
+	"github.com/nue-mic/frpc-manager/internal/manager"
 )
 
 // LifecycleHandler serves start/stop/reload endpoints.

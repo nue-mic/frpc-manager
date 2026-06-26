@@ -12,12 +12,12 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/mia-clark/frpc-manager/internal/api"
-	"github.com/mia-clark/frpc-manager/internal/appcfg"
-	"github.com/mia-clark/frpc-manager/internal/backup"
-	"github.com/mia-clark/frpc-manager/internal/eventbus"
-	"github.com/mia-clark/frpc-manager/internal/manager"
-	"github.com/mia-clark/frpc-manager/pkg/version"
+	"github.com/nue-mic/frpc-manager/internal/api"
+	"github.com/nue-mic/frpc-manager/internal/appcfg"
+	"github.com/nue-mic/frpc-manager/internal/backup"
+	"github.com/nue-mic/frpc-manager/internal/eventbus"
+	"github.com/nue-mic/frpc-manager/internal/manager"
+	"github.com/nue-mic/frpc-manager/pkg/version"
 )
 
 func main() {

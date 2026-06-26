@@ -10,8 +10,8 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/mia-clark/frpc-manager/internal/backup"
-	"github.com/mia-clark/frpc-manager/internal/eventbus"
+	"github.com/nue-mic/frpc-manager/internal/backup"
+	"github.com/nue-mic/frpc-manager/internal/eventbus"
 )
 
 func sampleChannel(name string) backup.Channel {

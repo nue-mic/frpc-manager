@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"os"
 
-	"github.com/mia-clark/frpc-manager/pkg/consts"
+	"github.com/nue-mic/frpc-manager/pkg/consts"
 )
 
 const (

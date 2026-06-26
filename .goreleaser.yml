@@ -16,8 +16,8 @@ builds:
       - -trimpath
     ldflags:
       - -s -w
-      - -X github.com/mia-clark/frpc-manager/pkg/version.Number={{.Version}}
-      - -X github.com/mia-clark/frpc-manager/pkg/version.BuildDate={{.Date}}
+      - -X github.com/nue-mic/frpc-manager/pkg/version.Number={{.Version}}
+      - -X github.com/nue-mic/frpc-manager/pkg/version.BuildDate={{.Date}}
     # 显式目标清单（对标 frp 官方全平台）。稀疏矩阵用 targets 比 goos×goarch+ignore 清晰。
     # arm 用 goarm 后缀（v6/v7 两个变体）；mips/mipsle 走 softfloat（软路由多无 FPU），
     # mips64/mips64le 走 hardfloat；amd64/arm64/386/riscv64 用各自默认微架构（无需后缀）。
